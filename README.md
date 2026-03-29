@@ -1,5 +1,14 @@
-# 🏭 DataWarehouseOps-Env
+---
+title: DataWarehouseOps-Env
+emoji: 🏭
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+app_port: 7860
+pinned: false
+---
 
+# 🏭 DataWarehouseOps-Env
 > **An OpenEnv-compliant Reinforcement Learning environment** where AI agents learn to perform real-world enterprise data engineering tasks inside a live SQL sandbox.
 
 [![OpenEnv](https://img.shields.io/badge/OpenEnv-Compliant-blue)](https://github.com/meta-pytorch/OpenEnv)
