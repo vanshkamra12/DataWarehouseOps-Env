@@ -1,0 +1,951 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>DataWarehouseOps-Env | OpenEnv RL Playground</title>
+  <meta name="description" content="An OpenEnv-compliant RL environment for real-world data engineering tasks: data cleaning, PII masking, query optimization."/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <!-- Confetti script -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <style>
+    :root {
+      --bg:       #0a0e1a;
+      --surface:  #111827;
+      --surface2: #1a2236;
+      --border:   #1e2d45;
+      --accent:   #3b82f6;
+      --accent2:  #8b5cf6;
+      --green:    #10b981;
+      --yellow:   #f59e0b;
+      --red:      #ef4444;
+      --text:     #e2e8f0;
+      --muted:    #64748b;
+      --mono:     'JetBrains Mono', monospace;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ─── NAVBAR ──────────────────────────────────────── */
+    nav {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(10,14,26,0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 0 2rem;
+      display: flex; align-items: center; justify-content: space-between;
+      height: 60px;
+    }
+    .nav-brand {
+      display: flex; align-items: center; gap: .6rem;
+      font-weight: 700; font-size: 1.1rem;
+    }
+    .nav-brand .icon { font-size: 1.4rem; }
+    .nav-pills { display: flex; gap: .5rem; }
+    .pill {
+      padding: .3rem .9rem; border-radius: 999px;
+      font-size: .78rem; font-weight: 600;
+      border: 1px solid var(--border); cursor: pointer;
+      background: transparent; color: var(--muted);
+      transition: all .2s;
+    }
+    .pill:hover, .pill.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .badge {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #fff; padding: .2rem .6rem; border-radius: 999px;
+      font-size: .7rem; font-weight: 700; letter-spacing: .05em;
+    }
+
+    /* ─── HERO ────────────────────────────────────────── */
+    .hero {
+      text-align: center; padding: 4rem 2rem 3rem;
+      background: radial-gradient(ellipse 80% 50% at 50% -10%, rgba(59,130,246,.18), transparent);
+    }
+    .hero h1 {
+      font-size: clamp(2rem, 5vw, 3.2rem); font-weight: 800;
+      background: linear-gradient(135deg, #fff 30%, #3b82f6 80%);
+      -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+      line-height: 1.15; margin-bottom: 1rem;
+    }
+    .hero p { color: var(--muted); font-size: 1.05rem; max-width: 600px; margin: 0 auto 2rem; }
+    .hero-stats { display: flex; justify-content: center; gap: 2rem; flex-wrap: wrap; }
+    .stat { text-align: center; }
+    .stat-value { font-size: 1.6rem; font-weight: 800; color: var(--accent); }
+    .stat-label { font-size: .75rem; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+
+    /* ─── LAYOUT ──────────────────────────────────────── */
+    .container { max-width: 1400px; margin: 0 auto; padding: 0 1.5rem; }
+    .section-title {
+      font-size: 1.1rem; font-weight: 700; color: var(--text);
+      margin-bottom: 1rem; display: flex; align-items: center; gap: .5rem;
+    }
+    .section-title::after {
+      content: ''; flex: 1; height: 1px; background: var(--border);
+    }
+
+    /* ─── TASK CARDS ──────────────────────────────────── */
+    .tasks-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+    .task-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 1.4rem;
+      cursor: pointer; transition: all .25s;
+      position: relative; overflow: hidden;
+    }
+    .task-card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      opacity: 0; transition: opacity .25s;
+    }
+    .task-card:hover, .task-card.selected {
+      border-color: var(--accent); transform: translateY(-2px);
+      box-shadow: 0 8px 32px rgba(59,130,246,.15);
+    }
+    .task-card:hover::before, .task-card.selected::before { opacity: 1; }
+    .task-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: .8rem; }
+    .task-name { font-weight: 700; font-size: 1rem; }
+    .diff-badge {
+      padding: .2rem .7rem; border-radius: 999px; font-size: .72rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: .06em;
+    }
+    .diff-easy   { background: rgba(16,185,129,.15); color: var(--green); border: 1px solid rgba(16,185,129,.3); }
+    .diff-medium { background: rgba(245,158,11,.12); color: var(--yellow); border: 1px solid rgba(245,158,11,.3); }
+    .diff-hard   { background: rgba(239,68,68,.12);  color: var(--red);    border: 1px solid rgba(239,68,68,.3); }
+    .task-desc { color: var(--muted); font-size: .82rem; line-height: 1.55; margin-bottom: 1rem; }
+    .task-meta { display: flex; gap: 1rem; }
+    .meta-item { font-size: .75rem; color: var(--muted); display: flex; align-items: center; gap: .3rem; }
+    .meta-item span { color: var(--text); font-weight: 600; }
+
+    /* ─── PLAYGROUND ──────────────────────────────────── */
+    .playground { display: grid; grid-template-columns: 1fr 420px; gap: 1rem; margin-bottom: 2rem; }
+    @media (max-width: 1024px) { .playground { grid-template-columns: 1fr; } }
+
+    .panel {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; overflow: hidden;
+    }
+    .panel-header {
+      padding: .8rem 1.2rem; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      background: var(--surface2);
+    }
+    .panel-title { font-size: .85rem; font-weight: 600; display: flex; align-items: center; gap: .5rem; }
+    .panel-body { padding: 1.2rem; }
+
+    /* SQL Editor */
+    .sql-editor-wrap { position: relative; }
+    #sql-input {
+      width: 100%; min-height: 140px; padding: 1rem;
+      background: #0d1117; border: 1px solid var(--border); border-radius: 8px;
+      color: #58a6ff; font-family: var(--mono); font-size: .88rem; line-height: 1.6;
+      resize: vertical; outline: none; transition: border-color .2s;
+      caret-color: var(--accent);
+    }
+    #sql-input:focus { border-color: var(--accent); }
+    .editor-actions { display: flex; gap: .6rem; margin-top: .8rem; flex-wrap: wrap; }
+
+    /* Buttons */
+    .btn {
+      padding: .55rem 1.2rem; border-radius: 8px; font-size: .85rem; font-weight: 600;
+      cursor: pointer; border: none; transition: all .2s; display: inline-flex; align-items: center; gap: .4rem;
+    }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover { background: #2563eb; transform: translateY(-1px); }
+    .btn-success { background: var(--green); color: #fff; }
+    .btn-success:hover { background: #059669; }
+    .btn-warning { background: var(--yellow); color: #000; }
+    .btn-warning:hover { background: #d97706; }
+    .btn-ghost { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+    .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+    .btn:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+
+    /* SQL Result */
+    .result-area {
+      min-height: 120px; max-height: 300px; overflow: auto;
+      background: #0d1117; border: 1px solid var(--border); border-radius: 8px;
+      padding: 1rem; font-family: var(--mono); font-size: .8rem; margin-top: .8rem;
+    }
+    .result-table { border-collapse: collapse; width: 100%; }
+    .result-table th, .result-table td {
+      padding: .35rem .7rem; text-align: left; border-bottom: 1px solid var(--border);
+      white-space: nowrap; font-size: .78rem;
+    }
+    .result-table th { color: var(--accent); font-weight: 600; }
+    .result-table td { color: #cdd9e5; }
+    .result-table tr:hover td { background: var(--surface2); }
+    .error-text { color: var(--red); }
+    .success-text { color: var(--green); }
+    .muted-text { color: var(--muted); font-style: italic; }
+
+    /* Right panel — Episode State */
+    .state-section { margin-bottom: 1.2rem; }
+    .state-label { font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-bottom: .4rem; }
+
+    /* Score ring */
+    .score-wrap { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.2rem; }
+    .score-ring { position: relative; width: 80px; height: 80px; flex-shrink: 0; }
+    .score-ring svg { transform: rotate(-90deg); }
+    .score-ring .track { fill: none; stroke: var(--surface2); stroke-width: 8; }
+    .score-ring .fill  { fill: none; stroke-width: 8; stroke-linecap: round; transition: stroke-dashoffset .6s ease; }
+    #score-text {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+      font-size: 1rem; font-weight: 800; font-family: var(--mono);
+    }
+    .score-details { flex: 1; }
+    .score-details h3 { font-size: 1.4rem; font-weight: 800; }
+    .score-details p { font-size: .78rem; color: var(--muted); }
+
+    /* Reward bar */
+    .reward-bar-wrap { margin-bottom: 1.2rem; }
+    .reward-bar { height: 8px; background: var(--surface2); border-radius: 999px; overflow: hidden; }
+    .reward-fill {
+      height: 100%; border-radius: 999px;
+      background: linear-gradient(90deg, var(--accent), var(--green));
+      transition: width .4s ease;
+    }
+    .reward-labels { display: flex; justify-content: space-between; margin-top: .3rem; font-size: .72rem; color: var(--muted); }
+
+    /* Step counter */
+    .step-counter {
+      display: flex; align-items: center; gap: .8rem; padding: .6rem 1rem;
+      background: var(--surface2); border-radius: 8px; margin-bottom: 1rem;
+    }
+    .step-dots { display: flex; gap: 3px; flex-wrap: wrap; }
+    .step-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--border); transition: background .3s;
+    }
+    .step-dot.done { background: var(--accent); }
+    .step-dot.current { background: var(--green); box-shadow: 0 0 6px var(--green); }
+
+    /* Schema tree */
+    .schema-tree { font-family: var(--mono); font-size: .78rem; line-height: 1.8; }
+    .schema-table-name { color: var(--accent); font-weight: 600; }
+    .schema-col { color: var(--muted); padding-left: 1rem; }
+    .schema-col .col-type { color: var(--accent2); }
+    .schema-col .col-pk { color: var(--yellow); font-size: .65rem; margin-left: .3rem; }
+
+    /* Terminal log */
+    .log-wrap {
+      background: #0d1117; border: 1px solid var(--border); border-radius: 8px;
+      padding: .8rem 1rem; max-height: 200px; overflow-y: auto;
+      font-family: var(--mono); font-size: .78rem; line-height: 1.7;
+    }
+    .log-line { display: flex; gap: .6rem; }
+    .log-ts { color: var(--muted); flex-shrink: 0; }
+    .log-msg-ok    { color: var(--green); }
+    .log-msg-err   { color: var(--red); }
+    .log-msg-info  { color: #58a6ff; }
+    .log-msg-warn  { color: var(--yellow); }
+
+    /* Breakdown table */
+    .breakdown-grid { display: grid; gap: .4rem; }
+    .breakdown-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: .4rem .7rem; background: var(--surface2); border-radius: 6px; font-size: .8rem;
+    }
+    .breakdown-key { color: var(--muted); }
+    .breakdown-val { font-weight: 700; font-family: var(--mono); }
+    .val-good { color: var(--green); }
+    .val-bad  { color: var(--red); }
+    .val-mid  { color: var(--yellow); }
+
+    /* Baseline runner */
+    .baseline-section {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+      padding: 1.5rem; margin-bottom: 2rem;
+    }
+    .baseline-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-top: 1rem; }
+    .baseline-card {
+      background: var(--surface2); border: 1px solid var(--border); border-radius: 10px;
+      padding: 1rem; text-align: center;
+    }
+    .baseline-card .b-task { font-size: .78rem; color: var(--muted); margin-bottom: .5rem; }
+    .baseline-card .b-score {
+      font-size: 2rem; font-weight: 800; font-family: var(--mono);
+    }
+    .baseline-card .b-bar { height: 6px; background: var(--border); border-radius: 999px; margin-top: .5rem; overflow: hidden; }
+    .baseline-card .b-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--accent), var(--green)); transition: width 1s ease; }
+
+    /* Toast */
+    #toast {
+      position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 999;
+      background: var(--surface); border: 1px solid var(--accent); border-radius: 10px;
+      padding: .8rem 1.2rem; font-size: .85rem; font-weight: 600;
+      box-shadow: 0 8px 32px rgba(0,0,0,.4);
+      transform: translateY(100px); opacity: 0; transition: all .3s;
+      max-width: 320px;
+    }
+    #toast.show { transform: translateY(0); opacity: 1; }
+
+    /* Snippet pills */
+    .snippets { display: flex; gap: .4rem; flex-wrap: wrap; margin-bottom: .6rem; }
+    .snippet-btn {
+      padding: .2rem .7rem; border-radius: 6px; font-size: .72rem; font-weight: 500;
+      background: var(--surface2); border: 1px solid var(--border); color: var(--muted);
+      cursor: pointer; transition: all .15s; font-family: var(--mono);
+    }
+    .snippet-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* Animated gradient border on active session */
+    .session-active { border-color: var(--green) !important; }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+    /* Footer */
+    footer {
+      border-top: 1px solid var(--border); padding: 1.5rem 2rem;
+      display: flex; align-items: center; justify-content: space-between;
+      color: var(--muted); font-size: .8rem; flex-wrap: wrap; gap: .5rem;
+    }
+    footer a { color: var(--accent); text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+
+    /* Pulse animation */
+    @keyframes pulse {
+      0%, 100% { opacity: 1; } 50% { opacity: .5; }
+    }
+    .pulse { animation: pulse 1.5s infinite; }
+
+    /* Fade in */
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .fade-in { animation: fadeIn .4s ease forwards; }
+  </style>
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav>
+  <div class="nav-brand">
+    <span class="icon">🏭</span>
+    <span>DataWarehouseOps<span style="color:var(--accent)">-Env</span></span>
+    <span class="badge">OpenEnv</span>
+  </div>
+  <div class="nav-pills">
+    <button class="pill active" onclick="scrollTo(0,0)">Playground</button>
+    <a href="/docs" target="_blank"><button class="pill">API Docs</button></a>
+    <a href="https://github.com/meta-pytorch/OpenEnv" target="_blank"><button class="pill">OpenEnv</button></a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <h1>Enterprise Data Engineering<br/>RL Environment</h1>
+  <p>Train AI agents on real-world data warehouse tasks — SQL data cleaning, PII privacy masking, and query optimization with live database feedback.</p>
+  <div class="hero-stats">
+    <div class="stat"><div class="stat-value">3</div><div class="stat-label">Tasks</div></div>
+    <div class="stat"><div class="stat-value">100%</div><div class="stat-label">Deterministic Grading</div></div>
+    <div class="stat"><div class="stat-value">SQLite</div><div class="stat-label">Live Sandbox DB</div></div>
+    <div class="stat"><div class="stat-value">OpenEnv</div><div class="stat-label">Spec Compliant</div></div>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- TASK SELECTION -->
+  <div class="section-title">⚡ Choose a Task</div>
+  <div class="tasks-grid" id="tasks-grid">
+    <div class="task-card selected" id="card-task1" onclick="selectTask('task1_data_cleaning',this)">
+      <div class="task-header">
+        <div class="task-name">🧹 Data Cleaning</div>
+        <span class="diff-badge diff-easy">Easy</span>
+      </div>
+      <p class="task-desc">Normalize messy customer records: fix inconsistent gender values, convert broken date formats to ISO-8601, and fill NULL country fields — all using SQL UPDATE statements.</p>
+      <div class="task-meta">
+        <div class="meta-item">🎯 Max Steps: <span>25</span></div>
+        <div class="meta-item">📊 Grader: <span>SQL COUNT checks</span></div>
+      </div>
+    </div>
+    <div class="task-card" id="card-task2" onclick="selectTask('task2_pii_masking',this)">
+      <div class="task-header">
+        <div class="task-name">🔒 PII Masking</div>
+        <span class="diff-badge diff-medium">Medium</span>
+      </div>
+      <p class="task-desc">GDPR compliance: create a SQL VIEW named <code style="color:var(--accent)">masked_customers</code> that hides email usernames, masks credit cards (last 4 digits), and redacts SSNs (last 2 digits).</p>
+      <div class="task-meta">
+        <div class="meta-item">🎯 Max Steps: <span>20</span></div>
+        <div class="meta-item">📊 Grader: <span>Regex pattern match</span></div>
+      </div>
+    </div>
+    <div class="task-card" id="card-task3" onclick="selectTask('task3_query_optimization',this)">
+      <div class="task-header">
+        <div class="task-name">⚡ Query Optimization</div>
+        <span class="diff-badge diff-hard">Hard</span>
+      </div>
+      <p class="task-desc">A financial report query is doing a full table scan on 2,000 rows. Diagnose with EXPLAIN QUERY PLAN, create the right index, and prove the database now uses an index scan.</p>
+      <div class="task-meta">
+        <div class="meta-item">🎯 Max Steps: <span>30</span></div>
+        <div class="meta-item">📊 Grader: <span>EXPLAIN QUERY PLAN</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PLAYGROUND -->
+  <div class="section-title">🖥️ Interactive Playground</div>
+  <div class="playground">
+
+    <!-- LEFT: SQL Terminal -->
+    <div class="panel" id="left-panel">
+      <div class="panel-header">
+        <div class="panel-title">
+          <span>💻</span> SQL Terminal
+          <span id="session-indicator" style="font-size:.72rem; color:var(--muted); font-weight:400">— no active session</span>
+        </div>
+        <div style="display:flex;gap:.5rem;align-items:center">
+          <div id="status-dot" style="width:8px;height:8px;border-radius:50%;background:var(--muted)"></div>
+        </div>
+      </div>
+      <div class="panel-body">
+
+        <!-- Quick Snippets -->
+        <div class="state-label">Quick Snippets</div>
+        <div class="snippets" id="snippets-bar"></div>
+
+        <!-- Editor -->
+        <div class="sql-editor-wrap">
+          <textarea id="sql-input" spellcheck="false" placeholder="-- Write your SQL here...&#10;SELECT * FROM tables LIMIT 10;"></textarea>
+        </div>
+        <div class="editor-actions">
+          <button class="btn btn-primary" id="btn-reset" onclick="doReset()">▶ Start Episode</button>
+          <button class="btn btn-ghost" id="btn-run" onclick="doStep()" disabled>⚡ Run SQL</button>
+          <button class="btn btn-success" id="btn-finalize" onclick="doFinalize()" disabled>✅ Finalize &amp; Grade</button>
+          <!-- MAGIC AI SOLVER BUTTON -->
+          <button class="btn btn-ghost" id="btn-auto-solve" onclick="runAutoSolver()" style="margin-left:auto" disabled>
+            ✨ Run AI Auto-Solver
+          </button>
+          <button class="btn btn-ghost" onclick="clearResult()">🗑 Clear</button>
+        </div>
+
+        <!-- Result -->
+        <div class="state-label" style="margin-top:1rem">Result</div>
+        <div class="result-area" id="result-area">
+          <span class="muted-text">Click "Start Episode" to begin, then run SQL commands.</span>
+        </div>
+
+        <!-- Log -->
+        <div class="state-label" style="margin-top:1rem">Episode Log</div>
+        <div class="log-wrap" id="log-wrap"></div>
+      </div>
+    </div>
+
+    <!-- RIGHT: State Panel -->
+    <div style="display:flex;flex-direction:column;gap:1rem">
+
+      <!-- Score + Reward -->
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">📊 Episode Score</div>
+        </div>
+        <div class="panel-body">
+          <div class="score-wrap">
+            <div class="score-ring">
+              <svg viewBox="0 0 80 80" width="80" height="80">
+                <circle class="track" cx="40" cy="40" r="32"/>
+                <circle class="fill" id="score-ring-fill" cx="40" cy="40" r="32"
+                  stroke="url(#grad)"
+                  stroke-dasharray="201"
+                  stroke-dashoffset="201"/>
+                <defs>
+                  <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stop-color="#3b82f6"/>
+                    <stop offset="100%" stop-color="#10b981"/>
+                  </linearGradient>
+                </defs>
+              </svg>
+              <div id="score-text" style="color:#fff">—</div>
+            </div>
+            <div class="score-details">
+              <p class="state-label">Grader Score</p>
+              <h3 id="score-display">—</h3>
+              <p id="score-sub" style="font-size:.75rem;color:var(--muted)">Not finalized yet</p>
+            </div>
+          </div>
+
+          <div class="state-label">Cumulative Reward</div>
+          <div class="reward-bar-wrap">
+            <div class="reward-bar"><div class="reward-fill" id="reward-fill" style="width:0%"></div></div>
+            <div class="reward-labels"><span>0</span><span id="reward-val">0.00</span><span>+5.0</span></div>
+          </div>
+
+          <div class="state-label">Steps</div>
+          <div class="step-counter">
+            <div class="step-dots" id="step-dots"></div>
+            <span style="font-size:.75rem;color:var(--muted)" id="step-label">0 / 0</span>
+          </div>
+
+          <!-- Breakdown -->
+          <div id="breakdown-section" style="display:none">
+            <div class="state-label">Grade Breakdown</div>
+            <div class="breakdown-grid" id="breakdown-grid"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Schema Explorer -->
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">🗄️ Schema Explorer</div>
+        </div>
+        <div class="panel-body">
+          <div class="schema-tree" id="schema-tree">
+            <span class="muted-text">Start an episode to see the database schema.</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- BASELINE RUNNER -->
+  <div class="section-title">🤖 Baseline Agent Scores</div>
+  <div class="baseline-section">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem">
+      <div>
+        <h3 style="font-size:1rem;font-weight:700;margin-bottom:.3rem">Deterministic Heuristic Baseline</h3>
+        <p style="font-size:.82rem;color:var(--muted)">A hand-coded rule-based agent that solves all 3 tasks with perfect SQL — no LLM required. Proves the environment is fully solvable.</p>
+      </div>
+      <button class="btn btn-primary" id="btn-baseline" onclick="runBaseline()">▶ Run Baseline</button>
+    </div>
+    <div class="baseline-grid" id="baseline-grid">
+      <div class="baseline-card"><div class="b-task">task1_data_cleaning</div><div class="b-score" style="color:var(--muted)">—</div><div class="b-bar"><div class="b-fill" style="width:0%"></div></div></div>
+      <div class="baseline-card"><div class="b-task">task2_pii_masking</div><div class="b-score" style="color:var(--muted)">—</div><div class="b-bar"><div class="b-fill" style="width:0%"></div></div></div>
+      <div class="baseline-card"><div class="b-task">task3_query_optimization</div><div class="b-score" style="color:var(--muted)">—</div><div class="b-bar"><div class="b-fill" style="width:0%"></div></div></div>
+    </div>
+  </div>
+
+</div><!-- /container -->
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<!-- FOOTER -->
+<footer>
+  <span>🏭 DataWarehouseOps-Env &nbsp;·&nbsp; OpenEnv-Compliant RL Environment &nbsp;·&nbsp; v1.0.0</span>
+  <span>
+    <a href="/docs">API Docs</a> &nbsp;·&nbsp;
+    <a href="/tasks">Tasks JSON</a> &nbsp;·&nbsp;
+    <a href="https://github.com/meta-pytorch/OpenEnv" target="_blank">OpenEnv</a>
+  </span>
+</footer>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────
+let sessionId   = null;
+let currentTask = 'task1_data_cleaning';
+let currentStep = 0;
+let maxSteps    = 25;
+let totalReward = 0;
+let episodeDone = false;
+
+const SNIPPETS = {
+  task1_data_cleaning: [
+    "SELECT gender, COUNT(*) FROM employee_records GROUP BY gender;",
+    "SELECT id, birth_date, hire_date FROM employee_records WHERE birth_date NOT LIKE '____-__-__' LIMIT 5;",
+    "UPDATE employee_records SET gender='Male' WHERE LOWER(TRIM(gender)) IN ('m','male','man');",
+    "UPDATE employee_records SET gender='Female' WHERE LOWER(TRIM(gender)) IN ('f','female','woman');",
+    "UPDATE employee_records SET gender='Unknown' WHERE gender NOT IN ('Male','Female') OR gender IS NULL;",
+    "UPDATE employee_records SET country='Unknown' WHERE country IS NULL;",
+  ],
+  task2_pii_masking: [
+    "SELECT * FROM customers_pii LIMIT 5;",
+    "SELECT name FROM sqlite_master WHERE type='view';",
+    `CREATE VIEW IF NOT EXISTS masked_customers AS SELECT id,first_name,last_name,company,'***@'||SUBSTR(email,INSTR(email,'@')+1) AS email,'****-****-****-'||SUBSTR(REPLACE(credit_card,'-',''),-4) AS credit_card,'*****-**-'||SUBSTR(REPLACE(ssn,'-',''),-2) AS ssn,city,country,signup_year,risk_tier FROM customers_pii;`,
+    "SELECT * FROM masked_customers LIMIT 5;",
+  ],
+  task3_query_optimization: [
+    "SELECT COUNT(*) FROM sales_transactions;",
+    "EXPLAIN QUERY PLAN SELECT p.category,st.region,SUM(st.total_amount) FROM sales_transactions st JOIN products p ON st.product_id=p.id WHERE st.sale_date BETWEEN '2023-06-01' AND '2023-09-30' AND st.status='completed' GROUP BY p.category,st.region;",
+    "SELECT name,sql FROM sqlite_master WHERE type='index' AND tbl_name='sales_transactions';",
+    "CREATE INDEX IF NOT EXISTS idx_sales_date_status ON sales_transactions(sale_date, status);",
+  ]
+};
+
+// ── Helpers ────────────────────────────────────────────────────────
+function toast(msg, ok=true) {
+  const t = document.getElementById('toast');
+  t.textContent = (ok ? '✅ ' : '❌ ') + msg;
+  t.style.borderColor = ok ? 'var(--green)' : 'var(--red)';
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+function log(msg, type='info') {
+  const wrap = document.getElementById('log-wrap');
+  const ts = new Date().toLocaleTimeString('en', {hour12:false});
+  const line = document.createElement('div');
+  line.className = 'log-line fade-in';
+  line.innerHTML = `<span class="log-ts">${ts}</span><span class="log-msg-${type}">${escHtml(msg)}</span>`;
+  wrap.appendChild(line);
+  wrap.scrollTop = wrap.scrollHeight;
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function setStatus(online) {
+  const dot = document.getElementById('status-dot');
+  dot.style.background = online ? 'var(--green)' : 'var(--muted)';
+  if (online) dot.classList.add('pulse'); else dot.classList.remove('pulse');
+}
+
+function selectTask(taskId, el) {
+  currentTask = taskId;
+  document.querySelectorAll('.task-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  renderSnippets();
+  log(`Selected task: ${taskId}`, 'info');
+}
+
+function renderSnippets() {
+  const bar = document.getElementById('snippets-bar');
+  bar.innerHTML = '';
+  (SNIPPETS[currentTask] || []).forEach((sql, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'snippet-btn';
+    btn.textContent = ['Explore','Explore2','Fix1','Fix2','Fix3','Fix4','Inspect','View','Slow Query','Indexes','Create Index','Full'][i] || `Snippet ${i+1}`;
+    btn.title = sql.substring(0,80) + '...';
+    btn.onclick = () => { document.getElementById('sql-input').value = sql; };
+    bar.appendChild(btn);
+  });
+}
+
+function updateStepDots(step, max) {
+  const container = document.getElementById('step-dots');
+  container.innerHTML = '';
+  const show = Math.min(max, 30);
+  for (let i = 0; i < show; i++) {
+    const d = document.createElement('div');
+    d.className = 'step-dot' + (i < step ? ' done' : i === step ? ' current' : '');
+    container.appendChild(d);
+  }
+  document.getElementById('step-label').textContent = `${step} / ${max}`;
+}
+
+function updateReward(reward, max=5) {
+  totalReward = reward;
+  document.getElementById('reward-val').textContent = reward.toFixed(2);
+  const pct = Math.min(100, Math.max(0, (reward / max) * 100));
+  document.getElementById('reward-fill').style.width = pct + '%';
+}
+
+function updateScore(score) {
+  if (score === null || score === undefined) return;
+  const circumference = 201;
+  const offset = circumference * (1 - score);
+  document.getElementById('score-ring-fill').style.strokeDashoffset = offset;
+  document.getElementById('score-text').textContent = (score * 100).toFixed(0) + '%';
+  document.getElementById('score-text').style.color = score >= .8 ? 'var(--green)' : score >= .5 ? 'var(--yellow)' : 'var(--red)';
+  document.getElementById('score-display').textContent = score.toFixed(4);
+  document.getElementById('score-sub').textContent = score >= .8 ? '🎉 Excellent!' : score >= .5 ? '🟡 Partial success' : '🔴 Needs improvement';
+}
+
+function renderSchema(schemaInfo) {
+  const el = document.getElementById('schema-tree');
+  if (!schemaInfo || !Object.keys(schemaInfo).length) { el.innerHTML='<span class="muted-text">No schema.</span>'; return; }
+  let html = '';
+  for (const [name, info] of Object.entries(schemaInfo)) {
+    const icon = info.type === 'view' ? '👁️' : '📋';
+    html += `<div><span class="schema-table-name">${icon} ${name}</span> <span style="color:var(--muted);font-size:.7rem">(${info.row_count} rows)</span></div>`;
+    (info.columns || []).slice(0, 12).forEach(col => {
+      html += `<div class="schema-col">├ ${col.name} <span class="col-type">${col.type}</span>${col.pk ? '<span class="col-pk">PK</span>' : ''}</div>`;
+    });
+  }
+  el.innerHTML = html;
+}
+
+function renderResult(data) {
+  const el = document.getElementById('result-area');
+  if (data.error_message) {
+    el.innerHTML = `<span class="error-text">⚠ ${escHtml(data.error_message)}</span>`;
+    return;
+  }
+  const rows = data.query_result || [];
+  if (!rows.length) {
+    el.innerHTML = `<span class="success-text">✓ Command executed. Rows affected: ${data.rows_affected || 0}</span>`;
+    return;
+  }
+  const cols = Object.keys(rows[0]);
+  let html = '<table class="result-table"><thead><tr>';
+  cols.forEach(c => { html += `<th>${escHtml(c)}</th>`; });
+  html += '</tr></thead><tbody>';
+  rows.forEach(row => {
+    html += '<tr>';
+    cols.forEach(c => { html += `<td>${escHtml(String(row[c] ?? 'NULL'))}</td>`; });
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  el.innerHTML = html;
+}
+
+function renderBreakdown(breakdown) {
+  if (!breakdown || !Object.keys(breakdown).length) return;
+  const section = document.getElementById('breakdown-section');
+  const grid = document.getElementById('breakdown-grid');
+  section.style.display = 'block';
+  grid.innerHTML = '';
+  for (const [k, v] of Object.entries(breakdown)) {
+    if (k === 'final_score') continue;
+    const row = document.createElement('div');
+    row.className = 'breakdown-row';
+    let cls = typeof v === 'number' ? (v >= .8 ? 'val-good' : v >= .4 ? 'val-mid' : 'val-bad') : '';
+    row.innerHTML = `<span class="breakdown-key">${k}</span><span class="breakdown-val ${cls}">${typeof v === 'number' ? v.toFixed ? v.toFixed(4) : v : escHtml(String(v).substring(0,50))}</span>`;
+    grid.appendChild(row);
+  }
+}
+
+// ── API Calls ──────────────────────────────────────────────────────
+async function doReset() {
+  try {
+    document.getElementById('btn-run').disabled = true;
+    document.getElementById('btn-finalize').disabled = true;
+    episodeDone = false;
+    document.getElementById('breakdown-section').style.display = 'none';
+    document.getElementById('score-ring-fill').style.strokeDashoffset = 201;
+    document.getElementById('score-text').textContent = '—';
+    document.getElementById('score-display').textContent = '—';
+    document.getElementById('score-sub').textContent = 'Not finalized yet';
+    updateReward(0);
+    log('Calling /reset ...', 'info');
+
+    const res = await fetch('/reset', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({task_id: currentTask})
+    });
+    const data = await res.json();
+    sessionId = data.session_id;
+    const obs  = data.observation;
+
+    maxSteps    = obs.max_steps;
+    currentStep = 0;
+
+    document.getElementById('session-indicator').textContent = `— session: ${sessionId.substring(0,8)}…`;
+    document.getElementById('left-panel').classList.add('session-active');
+    setStatus(true);
+
+    renderSchema(obs.schema_info);
+    renderResult(obs);
+    updateStepDots(0, maxSteps);
+
+    document.getElementById('btn-run').disabled = false;
+    document.getElementById('btn-finalize').disabled = false;
+    document.getElementById('btn-auto-solve').disabled = false;
+    log(`Episode started. Task: ${obs.task_id}`, 'ok');
+    toast('Episode started! Write SQL and click Run SQL.');
+  } catch(e) {
+    log('Reset failed: ' + e.message, 'err');
+    toast('Reset failed: ' + e.message, false);
+  }
+}
+
+async function doStep() {
+  if (!sessionId) { toast('Start an episode first!', false); return; }
+  if (episodeDone) { toast('Episode done. Click Start Episode to reset.', false); return; }
+  const sql = document.getElementById('sql-input').value.trim();
+  if (!sql) { toast('Enter a SQL command first.', false); return; }
+
+  try {
+    log(`SQL → ${sql.substring(0,60)}…`, 'info');
+    const res = await fetch('/step', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({session_id: sessionId, sql_command: sql, finalize_task: false})
+    });
+    const data = await res.json();
+    const obs  = data.observation;
+
+    currentStep = obs.current_step;
+    renderResult(obs);
+    renderSchema(obs.schema_info);
+    updateReward(obs.total_reward);
+    updateStepDots(currentStep, obs.max_steps);
+
+    if (obs.error_message) {
+      log(`Error: ${obs.error_message}`, 'err');
+    } else {
+      log(`Step ${currentStep}: reward=${data.reward.toFixed(3)}, rows_affected=${obs.rows_affected}`, 'ok');
+    }
+
+    if (obs.done) {
+      episodeDone = true;
+      handleDone(obs);
+    }
+  } catch(e) {
+    log('Step failed: ' + e.message, 'err');
+  }
+}
+
+async function doFinalize() {
+  if (!sessionId) { toast('Start an episode first!', false); return; }
+  if (episodeDone) { toast('Already finalized.', false); return; }
+  try {
+    log('Finalizing episode...', 'warn');
+    const res = await fetch('/grader', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({session_id: sessionId})
+    });
+    const data = await res.json();
+    log(`Grader score: ${data.grader_score}`, 'ok');
+    updateScore(data.grader_score);
+    renderBreakdown(data.breakdown);
+    episodeDone = true;
+    toast(`Graded! Score: ${(data.grader_score * 100).toFixed(1)}%`);
+    if (data.grader_score >= 0.99) fireConfetti();
+  } catch(e) {
+    log('Finalize failed: ' + e.message, 'err');
+  }
+}
+
+function handleDone(obs) {
+  setStatus(false);
+  const score = obs.info?.grader_score;
+  if (score !== undefined) {
+    updateScore(score);
+    renderBreakdown(obs.info?.grader_breakdown);
+    log(`Episode complete! Final score: ${score}`, 'ok');
+    toast(`Done! Score: ${(score * 100).toFixed(1)}%`);
+    if (score >= 0.99) fireConfetti();
+  }
+}
+
+function fireConfetti() {
+  if (typeof confetti !== 'function') return;
+  const duration = 3000;
+  const end = Date.now() + duration;
+  (function frame() {
+    confetti({ particleCount: 5, angle: 60, spread: 55, origin: { x: 0 }, colors: ['#3b82f6', '#10b981', '#f59e0b'] });
+    confetti({ particleCount: 5, angle: 120, spread: 55, origin: { x: 1 }, colors: ['#3b82f6', '#10b981', '#f59e0b'] });
+    if (Date.now() < end) requestAnimationFrame(frame);
+  }());
+}
+
+async function runAutoSolver() {
+  if (!sessionId || episodeDone) {
+    toast('Please Start Episode first!', false);
+    return;
+  }
+  
+  document.getElementById('btn-auto-solve').disabled = true;
+  document.getElementById('sql-input').disabled = true;
+  
+  log('✨ Agent initialized. Recommending actions...', 'warn');
+  
+  let sequence = [];
+  if (currentTask === 'task1_data_cleaning') {
+    sequence = [
+      { text: "UPDATE employee_records SET gender = 'Male' WHERE LOWER(TRIM(gender)) IN ('m','male','man');", delay: 800 },
+      { text: "UPDATE employee_records SET gender = 'Female' WHERE LOWER(TRIM(gender)) IN ('f','female','woman');", delay: 800 },
+      { text: "UPDATE employee_records SET gender = 'Unknown' WHERE gender NOT IN ('Male','Female') OR gender IS NULL;", delay: 800 },
+      { text: "UPDATE employee_records SET country = 'Unknown' WHERE country IS NULL;", delay: 800 },
+    ];
+  } else if (currentTask === 'task2_pii_masking') {
+    sequence = [
+      { text: `CREATE VIEW IF NOT EXISTS masked_customers AS
+SELECT id, first_name, last_name, company,
+'***@' || SUBSTR(email, INSTR(email,'@')+1) AS email,
+'****-****-****-' || SUBSTR(REPLACE(credit_card,'-',''), -4) AS credit_card,
+'*****-**-' || SUBSTR(REPLACE(ssn,'-',''), -2) AS ssn,
+city, country, signup_year, risk_tier
+FROM customers_pii;`, delay: 1200 },
+    ];
+  } else {
+    sequence = [
+      { text: "CREATE INDEX IF NOT EXISTS idx_sales_date_status ON sales_transactions(sale_date, status);", delay: 1000 },
+      { text: "EXPLAIN QUERY PLAN SELECT st.category, st.region, SUM(st.total_amount) AS total_revenue, COUNT(st.id) AS order_count, AVG(st.discount_pct) AS avg_discount_pct FROM sales_transactions st WHERE st.sale_date >= '2017-01-01' AND st.sale_date < '2018-01-01' AND st.status = 'completed' GROUP BY st.category, st.region ORDER BY total_revenue DESC;", delay: 800 },
+    ];
+  }
+
+  for (let step of sequence) {
+    if (episodeDone) break;
+    const input = document.getElementById('sql-input');
+    input.value = "";
+    document.getElementById('btn-run').classList.add('pulse');
+    
+    for (let char of step.text) {
+      input.value += char;
+      await new Promise(r => setTimeout(r, 15));
+    }
+    
+    document.getElementById('btn-run').classList.remove('pulse');
+    await new Promise(r => setTimeout(r, 300));
+    await doStep();
+    await new Promise(r => setTimeout(r, step.delay));
+  }
+  
+  if (!episodeDone) {
+    log('✨ Agent task sequence complete. Finalizing...', 'warn');
+    await doFinalize();
+  }
+  document.getElementById('sql-input').disabled = false;
+}
+
+async function runBaseline() {
+  const btn = document.getElementById('btn-baseline');
+  btn.disabled = true;
+  btn.textContent = '⏳ Running...';
+  log('Running heuristic baseline on all 3 tasks...', 'info');
+
+  try {
+    const res  = await fetch('/baseline', {method:'POST'});
+    const data = await res.json();
+    const scores = data.baseline_scores;
+    const cards = document.querySelectorAll('#baseline-grid .baseline-card');
+
+    scores.forEach((s, i) => {
+      const card = cards[i];
+      if (!card) return;
+      const pct = (s.score * 100).toFixed(1);
+      const color = s.score >= .9 ? 'var(--green)' : s.score >= .6 ? 'var(--yellow)' : 'var(--red)';
+      card.querySelector('.b-score').textContent = pct + '%';
+      card.querySelector('.b-score').style.color = color;
+      card.querySelector('.b-fill').style.width = pct + '%';
+      log(`${s.task_id}: ${pct}%`, 'ok');
+    });
+
+    toast('Baseline complete!');
+  } catch(e) {
+    log('Baseline failed: ' + e.message, 'err');
+    toast('Baseline failed', false);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '▶ Run Baseline';
+  }
+}
+
+function clearResult() {
+  document.getElementById('result-area').innerHTML = '<span class="muted-text">Cleared.</span>';
+}
+
+// ── Tab key in textarea ────────────────────────────────────────────
+document.getElementById('sql-input').addEventListener('keydown', function(e) {
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const s = this.selectionStart, en = this.selectionEnd;
+    this.value = this.value.substring(0,s) + '  ' + this.value.substring(en);
+    this.selectionStart = this.selectionEnd = s + 2;
+  }
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+    e.preventDefault();
+    doStep();
+  }
+});
+
+// ── Init ──────────────────────────────────────────────────────────
+renderSnippets();
+log('DataWarehouseOps-Env ready. Select a task and click Start Episode.', 'info');
+</script>
+</body>
+</html>

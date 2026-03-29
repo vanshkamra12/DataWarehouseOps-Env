@@ -1,0 +1,10 @@
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic==2.10.6
+requests==2.32.3
+openai==1.68.2
+python-multipart==0.0.20
+httpx==0.28.1
+faker==33.1.0
+aiofiles==24.1.0
+openenv-core

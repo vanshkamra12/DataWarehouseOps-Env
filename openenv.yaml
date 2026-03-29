@@ -1,0 +1,102 @@
+name: data-warehouse-ops-env
+version: "1.0.0"
+description: >
+  An OpenEnv-compliant reinforcement learning environment simulating real-world
+  enterprise data engineering tasks. An AI agent acts as a Senior Data Engineer
+  with SQL access to a live SQLite sandbox database. Tasks include data cleaning,
+  PII privacy masking, and query optimization with indexing.
+author: Vansh Kamra
+tags:
+  - openenv
+  - data-engineering
+  - sql
+  - real-world
+  - pii
+  - privacy
+  - query-optimization
+  - grpo
+tasks:
+  - id: task1_data_cleaning
+    name: "Enterprise Data Cleaning"
+    difficulty: easy
+    max_steps: 25
+    description: >
+      Clean a dirty employee_records table (2,000 real rows): normalize gender values,
+      fix broken date formats to ISO-8601, and fill NULL country values.
+
+  - id: task2_pii_masking
+    name: "PII Privacy Shielding"
+    difficulty: medium
+    max_steps: 20
+    description: >
+      Create a SQL VIEW named 'masked_customers' over 500 records that masks email usernames,
+      credit card numbers (last 4 visible), and SSNs (last 2 visible),
+      while preserving analytics-safe columns intact.
+
+  - id: task3_query_optimization
+    name: "Query Optimization & Indexing"
+    difficulty: hard
+    max_steps: 30
+    description: >
+      Diagnose a slow financial reporting query doing a full table scan on 100,000 rows.
+      Create the correct indexes so EXPLAIN QUERY PLAN shows SEARCH
+      (index scan) instead of SCAN (full table scan).
+
+action_space:
+  type: structured_json
+  fields:
+    sql_command:
+      type: string
+      required: false
+      description: "SQL statement to execute against the sandbox database."
+    finalize_task:
+      type: boolean
+      required: false
+      default: false
+      description: "Set true to end the episode and trigger the grader."
+    reasoning:
+      type: string
+      required: false
+      description: "Chain-of-thought reasoning (not graded)."
+
+observation_space:
+  type: structured_json
+  fields:
+    task_id: string
+    task_description: string
+    schema_info: object
+    query_result: array
+    rows_affected: integer
+    error_message: string_or_null
+    step_reward: float
+    total_reward: float
+    current_step: integer
+    max_steps: integer
+    done: boolean
+    episode_id: string
+    info: object
+
+reward:
+  min: -1.0
+  max: 1.0
+  description: >
+    Dense per-step rewards: +0.02 for exploration SELECT, +0.05 for
+    successful DML/DDL, -0.10 for invalid SQL, -0.50 for dangerous commands,
+    -0.10 for repeated commands (loop detection). Final grader score (0.0–1.0)
+    added as bonus on episode completion.
+
+endpoints:
+  - path: /reset
+    method: POST
+  - path: /step
+    method: POST
+  - path: /state
+    method: GET
+  - path: /tasks
+    method: GET
+  - path: /grader
+    method: POST
+  - path: /baseline
+    method: POST
+  - path: /health
+    method: GET
