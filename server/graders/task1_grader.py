@@ -1,8 +1,7 @@
 """
-Task 1 Grader — Enterprise HR Data Cleaning
-Based on REAL Northwind Employees data (expanded to 2,000 rows).
+Task 1 Grader: Data Cleaning
 Scores how well the agent cleaned the `employee_records` table.
-All checks are pure SQL → 100% deterministic.
+All checks are pure SQL.
 
 Score breakdown:
   - Gender normalization   : 0.30 (all must be 'Male', 'Female', or 'Unknown')
