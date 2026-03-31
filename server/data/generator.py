@@ -1,23 +1,6 @@
 """
-Real-World Data Generator — DataWarehouseOps-Env
-=================================================
-Uses REAL public databases (not synthetic) as the foundation:
-
-  Task 1 — Based on the Northwind database (real Microsoft trading company data)
-            Employees table extended to 2,000 rows via Faker, with real dirty-data
-            patterns introduced programmatically.
-
-  Task 2 — Based on the Chinook database (real digital music store — used by
-            Apple, Amazon, etc. for SQL training). Real customer emails, phones,
-            addresses from 20+ countries. Synthetic SSN + credit card added.
-
-  Task 3 — The Northwind 'Order Details' table has 609,283 REAL transaction rows.
-            We load a 100k-row subset with Products and Categories for the
-            optimization task. This is the same data used in SQL Server benchmarks.
-
-Both databases are recognized industry standards:
-  - Northwind: https://github.com/jpwhite3/northwind-SQLite3
-  - Chinook:   https://github.com/lerocha/chinook-database
+Data seed generator for DataWarehouseOps-Env.
+Loads base datasets (Northwind, Chinook) and applies Faker transformations.
 """
 
 from __future__ import annotations
@@ -124,12 +107,8 @@ def _load_northwind(target_conn: sqlite3.Connection) -> sqlite3.Connection:
 
 def generate_task1(conn: sqlite3.Connection, seed: int = 42, n_rows: int = 2000) -> None:
     """
-    Load real Northwind Employees as a base (9 real rows with real BirthDates,
-    HireDates, names, cities, countries), then expand to n_rows using Faker.
-    Introduce dirty-data patterns: broken dates, inconsistent genders, NULL countries.
-
-    The resulting `employee_records` table mirrors what you'd find in a real
-    HR data warehouse import from a legacy HRIS system.
+    Load base employees, then expand using Faker.
+    Introduce targeted data quality issues (dates, genders, nulls) for Task 1.
     """
     r = _rnd(seed)
 
@@ -241,12 +220,8 @@ def generate_task1(conn: sqlite3.Connection, seed: int = 42, n_rows: int = 2000)
 
 def generate_task2(conn: sqlite3.Connection, seed: int = 42, n_rows: int = 500) -> None:
     """
-    Load all 59 real Chinook Customer records (real names, emails, phones,
-    addresses from 20+ countries), then expand to n_rows using Faker.
-    Add synthetic SSN and credit_card columns so agents can practice PII masking.
-
-    The Chinook database is used by Apple, Amazon, and dozens of universities
-    worldwide as a standard SQL training dataset.
+    Load base customer records and expand.
+    Inject synthetic PII columns to prepare environment for Task 2 masking.
     """
     r = _rnd(seed)
 
@@ -362,15 +337,8 @@ def generate_task2(conn: sqlite3.Connection, seed: int = 42, n_rows: int = 500) 
 
 def generate_task3(conn: sqlite3.Connection, seed: int = 42, n_rows: int = 100_000) -> None:
     """
-    Load a subset of the real Northwind 'Order Details' + Products + Categories
-    tables. The Northwind dataset was created by Microsoft and is used in SQL
-    Server, Oracle, and PostgreSQL training worldwide.
-
-    We sample n_rows from the 609,283 real transaction lines and join with
-    real Products and Categories — real prices, real product names, real order IDs.
-
-    The slow query the agent must optimize runs a multi-table join with date
-    filtering — the exact pattern used in production BI/reporting systems.
+    Load 'Order Details' and related tables.
+    Samples subset of transactions to create a large table for index optimization.
     """
     r = _rnd(seed)
 
@@ -442,11 +410,7 @@ def generate_task3(conn: sqlite3.Connection, seed: int = 42, n_rows: int = 100_0
 # ---------------------------------------------------------------------------
 
 def seed_database(conn: sqlite3.Connection, task_id: str, scenario_seed: int = 42) -> None:
-    """
-    Seed the given connection with data for the specified task.
-    Uses REAL public databases (Northwind, Chinook) as the foundation.
-    scenario_seed controls which Faker variant is used for expanded rows.
-    """
+    """Seed the given connection with data for the specified task."""
     generators = {
         "task1_data_cleaning":      generate_task1,
         "task2_pii_masking":        generate_task2,
