@@ -8,7 +8,7 @@ app_port: 7860
 pinned: false
 ---
 
-# 🏭 DataWarehouseOps-Env
+# DataWarehouseOps-Env
 > **An OpenEnv-compliant Reinforcement Learning environment** where AI agents learn to perform real-world enterprise data engineering tasks inside a live SQL sandbox.
 
 [![OpenEnv](https://img.shields.io/badge/OpenEnv-Compliant-blue)](https://github.com/meta-pytorch/OpenEnv)
@@ -17,7 +17,7 @@ pinned: false
 
 ---
 
-## 🎯 Why This Environment Exists
+## Why This Environment Exists
 
 Every tech company on earth runs a data warehouse, and every data warehouse has the same chronic problems: **dirty data, exposed PII, and slow queries**. These problems cost billions of dollars annually in manual Data Engineering hours.
 
@@ -30,7 +30,7 @@ There are currently **no RL benchmarks** for data engineering agentic tasks. `Da
 
 ---
 
-## ✨ The Interactive Dashboard
+## The Interactive Dashboard
 
 Unlike typical CLI-only environments, this project includes a **stunning, production-grade Web UI** built into the FastApi server. 
 - **AI Auto-Solver Simulation:** Watch an AI literally "ghost type" real SQL commands to solve the environment live.
@@ -39,7 +39,7 @@ Unlike typical CLI-only environments, this project includes a **stunning, produc
 
 ---
 
-## 📐 Environment Description
+## Environment Description
 
 ### Architecture
 ```
@@ -60,7 +60,7 @@ Deterministic Graders (task1_grader, task2_grader, task3_grader)
 
 ---
 
-## 🗺️ Action Space
+## Action Space
 
 Every action is a JSON object sent to `POST /step`:
 
@@ -75,7 +75,7 @@ Every action is a JSON object sent to `POST /step`:
 
 ---
 
-## 👁️ Observation Space
+## Observation Space
 
 Every `step()` and `reset()` returns:
 
@@ -97,9 +97,9 @@ Every `step()` and `reset()` returns:
 
 ---
 
-## 📋 Tasks
+## Tasks
 
-### 🟢 Task 1 — Enterprise Data Cleaning (`task1_data_cleaning`) — Easy
+### Task 1 — Enterprise Data Cleaning (`task1_data_cleaning`) — Easy
 
 **Scenario:** An `employee_records` table was imported from a legacy HRIS system with classic dirty-data issues (**2,000 rows** of real Northwind-derived data).
 
@@ -119,7 +119,7 @@ Every `step()` and `reset()` returns:
 
 ---
 
-### 🟡 Task 2 — PII Privacy Shielding (`task2_pii_masking`) — Medium
+### Task 2 — PII Privacy Shielding (`task2_pii_masking`) — Medium
 
 **Scenario:** A `customers_pii` table has raw emails, credit cards, and SSNs inserted into real **Chinook** database records (**500 rows**). GDPR requires that data scientists only see masked data.
 
@@ -141,7 +141,7 @@ Create a SQL VIEW named exactly `masked_customers` that:
 
 ---
 
-### 🔴 Task 3 — Query Optimization & Indexing (`task3_query_optimization`) — Hard
+### Task 3 — Query Optimization & Indexing (`task3_query_optimization`) — Hard
 
 **Scenario:** A financial reporting query over **100,000 `sales_transactions` rows** (sampled from a 609,000-row Northwind expansion) is doing a full table scan. The agent must diagnose it and optimize it.
 
@@ -161,7 +161,7 @@ Create a SQL VIEW named exactly `masked_customers` that:
 
 ---
 
-## 💰 Reward Function
+## Reward Function
 
 | Event | Reward |
 |---|---|
@@ -177,21 +177,21 @@ All rewards clipped to `[-1.0, 1.0]`.
 
 ---
 
-## 📊 Baseline Scores
+## Baseline Scores
 
 Run by the included `baseline.py` script using `gpt-4o-mini`:
 
 | Task | Score | Difficulty |
 |---|---|---|
-| `task1_data_cleaning` | ~`0.80` | Easy 🟢 |
-| `task2_pii_masking` | ~`0.90` | Medium 🟡 |
-| `task3_query_optimization` | ~`0.65` | Hard 🔴 |
+| `task1_data_cleaning` | ~`0.80` | Easy |
+| `task2_pii_masking` | ~`0.90` | Medium |
+| `task3_query_optimization` | ~`0.65` | Hard |
 
 The `/baseline` endpoint also runs a built-in **deterministic heuristic agent** (no LLM) that scores perfectly on all 3 tasks, confirming the environment is solvable.
 
 ---
 
-## 🚀 Setup & Usage
+## Setup & Usage
 
 ### Local (Python)
 ```bash
@@ -241,7 +241,7 @@ python baseline.py
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 data-warehouse-env/
@@ -268,7 +268,7 @@ data-warehouse-env/
 
 ---
 
-## 🤖 API Reference
+## API Reference
 
 | Endpoint | Method | Description |
 |---|---|---|
@@ -283,6 +283,6 @@ data-warehouse-env/
 
 ---
 
-## 📜 License
+## License
 
 MIT License — see [LICENSE](LICENSE)
