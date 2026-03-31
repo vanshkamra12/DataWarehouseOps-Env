@@ -146,11 +146,14 @@ def run_episode(task_id: str, client) -> float:
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
     final_score = 0.0
 
-    for turn in range(MAX_TURNS):
+    for step in range(1, MAX_TURNS + 1):
         messages.append({"role": "user", "content": build_user_message(obs)})
 
         sql, finalize, reasoning = call_llm(messages, client)
-        print(f"  Turn {turn+1:02d} | finalize={finalize} | sql={str(sql)[:60]}...")
+        
+        # Format action exactly like sample script
+        action_str = f"sql='{str(sql)[:40]}...', finalize={finalize}"
+        print(f"Step {step}: model suggested -> {action_str}")
 
         messages.append({
             "role": "assistant",
@@ -159,21 +162,29 @@ def run_episode(task_id: str, client) -> float:
 
         resp = env_step(session_id, sql, finalize, reasoning)
         obs  = resp["observation"]
+        reward = obs.get("step_reward", 0.0)
+        done = obs.get("done", False)
+        error = obs.get("error_message")
 
-        if obs.get("done"):
+        print(
+            "  Reward: "
+            f"{reward:+.2f} | Done: {done} | Last action error: "
+            f"{error}"
+        )
+
+        if done:
             final_score = obs.get("info", {}).get("grader_score", 0.0)
             breakdown   = obs.get("info", {}).get("grader_breakdown", {})
-            print(f"\n  ✅ Episode Done!")
+            print("Episode complete.")
             print(f"  Grader Score : {final_score:.4f}")
             print(f"  Breakdown    : {json.dumps(breakdown, indent=4)}")
             break
 
-        if turn == MAX_TURNS - 1:
-            # Force finalize
+        if step == MAX_TURNS:
             resp = env_step(session_id, None, finalize=True)
             obs  = resp["observation"]
             final_score = obs.get("info", {}).get("grader_score", 0.0)
-            print(f"  ⏰ Max turns reached. Final score: {final_score:.4f}")
+            print(f"Reached max steps ({MAX_TURNS}). Final score: {final_score:.4f}")
 
     return final_score
 
