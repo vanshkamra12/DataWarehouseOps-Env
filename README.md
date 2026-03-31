@@ -181,7 +181,7 @@ All rewards clipped to `[-1.0, 1.0]`.
 
 ## Baseline Scores
 
-Run by the included `baseline.py` script using `gpt-4o-mini`:
+Run by the included `inference.py` script:
 
 | Task | Score | Difficulty |
 |---|---|---|
@@ -236,9 +236,11 @@ with DataWarehouseEnv(base_url="http://localhost:7860") as env:
 
 ### Run LLM Baseline
 ```bash
-export OPENAI_API_KEY=sk-your-key
+export HF_TOKEN="your_hf_token"
+export MODEL_NAME="meta-llama/Llama-3..."
+export API_BASE_URL="..."
 export DATAWAREHOUSE_ENV_URL=http://localhost:7860
-python baseline.py
+python inference.py
 ```
 
 ---
@@ -260,7 +262,7 @@ data-warehouse-env/
 │       └── task3_seed.sql  ← Sales transactions (2000 rows)
 ├── models.py               ← Pydantic typed models (Action, Observation, State)
 ├── client.py               ← Python HTTP client for RL training loops
-├── baseline.py             ← OpenAI API baseline inference script
+├── inference.py            ← OpenAI API baseline inference script
 ├── openenv.yaml            ← OpenEnv manifest
 ├── requirements.txt
 ├── pyproject.toml
