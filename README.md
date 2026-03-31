@@ -11,6 +11,8 @@ pinned: false
 # DataWarehouseOps-Env
 > **An OpenEnv-compliant Reinforcement Learning environment** where AI agents learn to perform real-world enterprise data engineering tasks inside a live SQL sandbox.
 
+**Live Demo:** [https://huggingface.co/spaces/vanshkamra12/datawarehouse](https://huggingface.co/spaces/vanshkamra12/datawarehouse)
+
 [![OpenEnv](https://img.shields.io/badge/OpenEnv-Compliant-blue)](https://github.com/meta-pytorch/OpenEnv)
 [![HF Space](https://img.shields.io/badge/🤗-HuggingFace%20Space-orange)](https://huggingface.co/spaces)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green)](LICENSE)
