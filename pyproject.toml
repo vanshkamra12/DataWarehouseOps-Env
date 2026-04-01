@@ -21,10 +21,11 @@ dependencies = [
     "pydantic>=2.10",
     "requests>=2.32",
     "openai>=1.60",
+    "openenv-core>=0.2.0",
 ]
 
 [project.scripts]
-datawarehouse-env-server = "server.app:app"
+server = "server.app:main"
 
 [tool.setuptools.packages.find]
 where = ["."]

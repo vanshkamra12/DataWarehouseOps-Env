@@ -383,3 +383,12 @@ def _run_heuristic_baseline(env: DataWarehouseEnvironment, task_id: str) -> floa
 
     obs = env.step({"sql_command": None, "finalize_task": True})
     return obs["info"].get("grader_score", 0.0)
+
+
+def main():
+    import uvicorn
+    # The default host and port standard for FastAPI / Docker Space tests
+    uvicorn.run("server.app:app", host="0.0.0.0", port=7860, reload=False)
+
+if __name__ == "__main__":
+    main()
