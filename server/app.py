@@ -136,11 +136,14 @@ async def health():
 
 
 @app.post("/reset")
-async def reset(req: ResetRequest):
+async def reset(req: Optional[ResetRequest] = None):
     """
     Start a new episode (or restart an existing session).
     Returns the initial observation with the full task description and DB schema.
     """
+    if req is None:
+        req = ResetRequest()
+        
     task_id = req.task_id or DEFAULT_TASK
     if task_id not in TASKS:
         raise HTTPException(status_code=400, detail=f"Unknown task_id '{task_id}'. Valid: {list(TASKS.keys())}")
