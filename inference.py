@@ -25,10 +25,10 @@ import requests
 # Config
 # ---------------------------------------------------------------------------
 
-ENV_URL      = os.environ.get("DATAWAREHOUSE_ENV_URL", "http://localhost:7860").rstrip("/")
-HF_TOKEN     = os.environ.get("HF_TOKEN", "")
-MODEL        = os.environ.get("MODEL_NAME", "meta-llama/Meta-Llama-3-8B-Instruct")
-API_BASE_URL = os.environ.get("API_BASE_URL", "https://api.openai.com/v1")
+ENV_URL      = os.getenv("DATAWAREHOUSE_ENV_URL", "http://localhost:7860").rstrip("/")
+API_BASE_URL = os.getenv("API_BASE_URL", "https://api.openai.com/v1")
+MODEL_NAME   = os.getenv("MODEL_NAME", "meta-llama/Meta-Llama-3-8B-Instruct")
+HF_TOKEN     = os.getenv("HF_TOKEN")
 MAX_TURNS    = 30
 
 TASKS = [
@@ -68,7 +68,7 @@ def env_step(session_id: str, sql: Optional[str], finalize: bool = False, reason
 def call_llm(messages: list, client) -> tuple[str, str]:
     """Call OpenAI and return (sql_command, reasoning)."""
     response = client.chat.completions.create(
-        model=MODEL,
+        model=MODEL_NAME,
         messages=messages,
         temperature=0,
         response_format={"type": "json_object"},
@@ -213,7 +213,7 @@ if __name__ == "__main__":
         sys.exit(1)
 
     print(f"\n🚀 DataWarehouseOps-Env Inference")
-    print(f"   Model       : {MODEL}")
+    print(f"   Model       : {MODEL_NAME}")
     print(f"   API Base    : {API_BASE_URL}")
     print(f"   Env URL     : {ENV_URL}")
     print(f"   Tasks   : {TASKS}\n")
