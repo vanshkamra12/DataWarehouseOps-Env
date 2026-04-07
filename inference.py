@@ -142,6 +142,7 @@ def run_episode(task_id: str, client) -> float:
 
     session_id, obs = env_reset(task_id)
     print(f"  Session: {session_id}")
+    print(f"[START] task={task_id}", flush=True)
 
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
     final_score = 0.0
@@ -171,6 +172,7 @@ def run_episode(task_id: str, client) -> float:
             f"{reward:+.2f} | Done: {done} | Last action error: "
             f"{error}"
         )
+        print(f"[STEP] step={step} reward={reward}", flush=True)
 
         if done:
             final_score = obs.get("info", {}).get("grader_score", 0.0)
@@ -178,6 +180,7 @@ def run_episode(task_id: str, client) -> float:
             print("Episode complete.")
             print(f"  Grader Score : {final_score:.4f}")
             print(f"  Breakdown    : {json.dumps(breakdown, indent=4)}")
+            print(f"[END] task={task_id} score={final_score} steps={step}", flush=True)
             break
 
         if step == MAX_TURNS:
@@ -185,6 +188,7 @@ def run_episode(task_id: str, client) -> float:
             obs  = resp["observation"]
             final_score = obs.get("info", {}).get("grader_score", 0.0)
             print(f"Reached max steps ({MAX_TURNS}). Final score: {final_score:.4f}")
+            print(f"[END] task={task_id} score={final_score} steps={step}", flush=True)
 
     return final_score
 
