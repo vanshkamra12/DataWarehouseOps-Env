@@ -37,32 +37,46 @@ TASKS = [
     "task3_query_optimization",
 ]
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
+import sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+_local_envs = {}
 
 def env_reset(task_id: str) -> tuple[str, dict]:
-    """POST /reset → returns (session_id, observation)"""
-    r = requests.post(f"{ENV_URL}/reset", json={"task_id": task_id}, timeout=30)
-    r.raise_for_status()
-    data = r.json()
-    return data["session_id"], data["observation"]
-
+    """POST /reset or native fallback"""
+    try:
+        r = requests.post(f"{ENV_URL}/reset", json={"task_id": task_id}, timeout=5)
+        r.raise_for_status()
+        data = r.json()
+        return data["session_id"], data["observation"]
+    except Exception:
+        from server.environment import DataWarehouseEnvironment
+        env = DataWarehouseEnvironment(task_id=task_id)
+        _local_envs[task_id] = env
+        return task_id, env.reset(task_id=task_id)
 
 def env_step(session_id: str, sql: Optional[str], finalize: bool = False, reasoning: str = "") -> dict:
-    """POST /step → returns full response dict"""
-    r = requests.post(
-        f"{ENV_URL}/step",
-        json={
-            "session_id":    session_id,
-            "sql_command":   sql,
+    """POST /step or native fallback"""
+    try:
+        r = requests.post(
+            f"{ENV_URL}/step",
+            json={
+                "session_id":    session_id,
+                "sql_command":   sql,
+                "finalize_task": finalize,
+                "reasoning":     reasoning,
+            },
+            timeout=5,
+        )
+        r.raise_for_status()
+        return r.json()
+    except Exception:
+        env = _local_envs[session_id]
+        obs = env.step({
+            "sql_command": sql,
             "finalize_task": finalize,
-            "reasoning":     reasoning,
-        },
-        timeout=30,
-    )
-    r.raise_for_status()
-    return r.json()
+            "reasoning": reasoning
+        })
+        return {"observation": obs}
 
 
 def call_llm(messages: list, client) -> tuple[str, str]:
@@ -136,13 +150,9 @@ CUMULATIVE REWARD: {obs.get('total_reward')}
 # ---------------------------------------------------------------------------
 
 def run_episode(task_id: str, client) -> float:
-    print(f"\n{'='*60}")
-    print(f"  TASK: {task_id}")
-    print(f"{'='*60}")
+    print(f"[START] task={task_id}", flush=True)
 
     session_id, obs = env_reset(task_id)
-    print(f"  Session: {session_id}")
-    print(f"[START] task={task_id}", flush=True)
 
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
     final_score = 0.0
