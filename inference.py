@@ -213,17 +213,15 @@ def run_episode(task_id: str, client) -> float:
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    if not API_KEY:
-        print("ERROR: Set API_KEY or HF_TOKEN environment variable before running.")
-        sys.exit(1)
-
     try:
         from openai import OpenAI
         client = OpenAI(
-            api_key=API_KEY,
-            base_url=API_BASE_URL
+            base_url=os.environ["API_BASE_URL"],
+            api_key=os.environ["API_KEY"]
         )
     except ImportError:
+        print("ERROR: openai package not installed. Run: pip install openai")
+        sys.exit(1)
         print("ERROR: openai package not installed. Run: pip install openai")
         sys.exit(1)
 
@@ -239,7 +237,9 @@ if __name__ == "__main__":
             score = run_episode(task, client)
             scores[task] = round(score, 4)
         except Exception as e:
-            print(f"  ERROR on {task}: {e}")
+            import traceback
+            traceback.print_exc()
+            print(f"  [CRITICAL PROXY ERROR] on {task}: {e}")
             scores[task] = 0.0
         time.sleep(1)
 
