@@ -265,18 +265,117 @@ async def grader(req: GraderRequest):
 @app.post("/baseline")
 async def baseline():
     """
-    Run the built-in rule-based baseline agent against all 3 tasks.
-    Returns reproducible scores (always uses scenario_seed=42).
-    NOTE: The full LLM-powered baseline is in baseline.py.
+    Run the LLM-powered baseline agent against all 3 tasks using the
+    platform-injected LiteLLM proxy (API_BASE_URL + API_KEY).
+    All LLM calls go through os.environ["API_BASE_URL"] as required.
     """
-    results = []
-    for task_id in TASKS.keys():
-        env = DataWarehouseEnvironment(task_id=task_id)
-        env.reset(scenario_seed=42)   # Fixed seed → fully reproducible
-        score = _run_heuristic_baseline(env, task_id)
-        results.append({"task_id": task_id, "score": score})
+    import json as _json
+    from openai import OpenAI as _OpenAI
 
-    return {"baseline_scores": results, "agent": "heuristic_baseline_v1"}
+    # Use the platform-injected proxy credentials — required by the hackathon
+    llm_client = _OpenAI(
+        base_url=os.environ["API_BASE_URL"],
+        api_key=os.environ["API_KEY"],
+    )
+    model_name = os.environ.get("MODEL_NAME", "meta-llama/Meta-Llama-3-8B-Instruct")
+
+    SYSTEM_PROMPT = (
+        "You are an expert Senior Data Engineer and SQL specialist.\n"
+        "You are operating inside a sandbox SQLite database environment.\n\n"
+        "At each turn you will receive:\n"
+        "- The current task description\n"
+        "- The current database schema (tables, columns, types, row counts)\n"
+        "- The result of your last SQL command\n"
+        "- Any error messages\n\n"
+        "You must respond with a JSON object containing:\n"
+        "{\n"
+        "  \"sql_command\": \"<valid SQL string, or null if finalizing>\",\n"
+        "  \"finalize_task\": <true if you believe the task is complete, false otherwise>,\n"
+        "  \"reasoning\": \"<brief explanation of what you are doing>\"\n"
+        "}\n\n"
+        "Rules:\n"
+        "1. ALWAYS start by running SELECT queries to understand the current state.\n"
+        "2. Use UPDATE, CREATE VIEW, CREATE INDEX as needed to complete the task.\n"
+        "3. NEVER use DROP TABLE, TRUNCATE, or DELETE without a WHERE clause.\n"
+        "4. Set finalize_task=true ONLY when you are confident the task is done.\n"
+        "5. Respond ONLY with valid JSON. No prose, no markdown.\n"
+    )
+
+    def _build_user_msg(obs: dict) -> str:
+        schema_str = _json.dumps(obs.get("schema_info", {}), indent=2)
+        result_str = _json.dumps(obs.get("query_result", [])[:10], indent=2)
+        return (
+            f"Task: {obs.get('task_id')}\n\n"
+            f"OBJECTIVE:\n{obs.get('task_description')}\n\n"
+            f"CURRENT SCHEMA:\n{schema_str}\n\n"
+            f"LAST QUERY RESULT (first 10 rows):\n{result_str}\n\n"
+            f"ROWS AFFECTED: {obs.get('rows_affected', 0)}\n"
+            f"ERROR: {obs.get('error_message') or 'None'}\n"
+            f"STEP: {obs.get('current_step')}/{obs.get('max_steps')}\n"
+            f"CUMULATIVE REWARD: {obs.get('total_reward')}\n"
+        )
+
+    def _call_llm(messages: list) -> tuple:
+        response = llm_client.chat.completions.create(
+            model=model_name,
+            messages=messages,
+            temperature=0,
+        )
+        raw = response.choices[0].message.content or ""
+        if raw.startswith("```json"):
+            raw = raw.replace("```json", "", 1).replace("```", "")
+        elif raw.startswith("```"):
+            raw = raw.replace("```", "", 2)
+        try:
+            parsed = _json.loads(raw)
+        except Exception:
+            parsed = {"sql_command": None, "finalize_task": False, "reasoning": raw}
+        return (
+            parsed.get("sql_command"),
+            parsed.get("finalize_task", False),
+            parsed.get("reasoning", ""),
+        )
+
+    results = []
+    max_turns = 20
+
+    for task_id in TASKS.keys():
+        print(f"[START] task={task_id}", flush=True)
+        env = DataWarehouseEnvironment(task_id=task_id)
+        obs = env.reset(task_id=task_id)
+        messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+        final_score = 0.0
+
+        for step_num in range(1, max_turns + 1):
+            messages.append({"role": "user", "content": _build_user_msg(obs)})
+            sql, finalize, reasoning = _call_llm(messages)
+            messages.append({
+                "role": "assistant",
+                "content": _json.dumps({
+                    "sql_command": sql,
+                    "finalize_task": finalize,
+                    "reasoning": reasoning,
+                }),
+            })
+            obs = env.step({
+                "sql_command": sql,
+                "finalize_task": finalize,
+                "reasoning": reasoning,
+            })
+            print(f"[STEP] step={step_num} reward={obs.get('step_reward', 0.0)}", flush=True)
+            if obs.get("done"):
+                final_score = obs.get("info", {}).get("grader_score", 0.0)
+                break
+            if step_num == max_turns:
+                obs = env.step({"sql_command": None, "finalize_task": True})
+                final_score = obs.get("info", {}).get("grader_score", 0.0)
+
+        print(f"[END] task={task_id} score={final_score}", flush=True)
+        results.append({"task_id": task_id, "score": final_score})
+
+    return {"baseline_scores": results, "agent": "llm_baseline_v1"}
+
+
 
 
 # ---------------------------------------------------------------------------
