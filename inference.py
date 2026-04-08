@@ -31,10 +31,10 @@ MAX_TURNS  = 30
 
 from openai import OpenAI
 
-# Use the platform-injected LiteLLM proxy — do NOT change these
+# Use the platform-injected LiteLLM proxy with fallbacks exactly as the sample script
 client = OpenAI(
-    base_url=os.environ["API_BASE_URL"],
-    api_key=os.environ["API_KEY"],
+    base_url=os.environ.get("API_BASE_URL", "https://router.huggingface.co/v1"),
+    api_key=os.environ.get("API_KEY", os.environ.get("HF_TOKEN", "dummy")),
 )
 
 
@@ -108,6 +108,28 @@ def call_llm(messages: list, client) -> tuple[str, str]:
 
 
 # ---------------------------------------------------------------------------
+# Strict STDOUT Logging Format (Required by Platform)
+# ---------------------------------------------------------------------------
+
+def log_start(task: str, env: str, model: str) -> None:
+    print(f"[START] task={task} env={env} model={model}", flush=True)
+
+def log_step(step: int, action: str, reward: float, done: bool, error: Optional[str]) -> None:
+    error_val = error if error else "null"
+    done_val = str(done).lower()
+    # Ensure action does not have newlines which breaks the parser
+    action_str = str(action).replace('\n', '\\n')
+    print(
+        f"[STEP] step={step} action={action_str} reward={reward:.2f} done={done_val} error={error_val}",
+        flush=True,
+    )
+
+def log_end(success: bool, steps: int, score: float, rewards: list[float]) -> None:
+    rewards_str = ",".join(f"{r:.2f}" for r in rewards)
+    print(f"[END] success={str(success).lower()} steps={steps} score={score:.3f} rewards={rewards_str}", flush=True)
+
+
+# ---------------------------------------------------------------------------
 # System prompt
 # ---------------------------------------------------------------------------
 
@@ -162,55 +184,54 @@ CUMULATIVE REWARD: {obs.get('total_reward')}
 # ---------------------------------------------------------------------------
 
 def run_episode(task_id: str, client) -> float:
-    print(f"[START] task={task_id}", flush=True)
+    benchmark_name = "DataWarehouseOps"
+    log_start(task=task_id, env=benchmark_name, model=MODEL_NAME)
 
     session_id, obs = env_reset(task_id)
 
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
     final_score = 0.0
+    rewards_history = []
+    success = False
 
-    for step in range(1, MAX_TURNS + 1):
-        messages.append({"role": "user", "content": build_user_message(obs)})
+    try:
+        for step in range(1, MAX_TURNS + 1):
+            messages.append({"role": "user", "content": build_user_message(obs)})
 
-        sql, finalize, reasoning = call_llm(messages, client)
-        
-        # Format action exactly like sample script
-        action_str = f"sql='{str(sql)[:40]}...', finalize={finalize}"
-        print(f"Step {step}: model suggested -> {action_str}")
+            sql, finalize, reasoning = call_llm(messages, client)
+            
+            # Format action exactly as a JSON string for the log
+            action_obj = {"sql_command": sql, "finalize_task": finalize}
+            action_str = json.dumps(action_obj)
 
-        messages.append({
-            "role": "assistant",
-            "content": json.dumps({"sql_command": sql, "finalize_task": finalize, "reasoning": reasoning})
-        })
+            messages.append({
+                "role": "assistant",
+                "content": json.dumps({"sql_command": sql, "finalize_task": finalize, "reasoning": reasoning})
+            })
 
-        resp = env_step(session_id, sql, finalize, reasoning)
-        obs  = resp["observation"]
-        reward = obs.get("step_reward", 0.0)
-        done = obs.get("done", False)
-        error = obs.get("error_message")
-
-        print(
-            "  Reward: "
-            f"{reward:+.2f} | Done: {done} | Last action error: "
-            f"{error}"
-        )
-        print(f"[STEP] step={step} reward={reward}", flush=True)
-
-        if done:
-            final_score = obs.get("info", {}).get("grader_score", 0.0)
-            breakdown   = obs.get("info", {}).get("grader_breakdown", {})
-            print("Episode complete.")
-            print(f"  Grader Score : {final_score:.4f}")
-            print(f"  Breakdown    : {json.dumps(breakdown, indent=4)}")
-            print(f"[END] task={task_id} score={final_score} steps={step}", flush=True)
-            break
-
-        if step == MAX_TURNS:
-            resp = env_step(session_id, None, finalize=True)
+            resp = env_step(session_id, sql, finalize, reasoning)
             obs  = resp["observation"]
-            final_score = obs.get("info", {}).get("grader_score", 0.0)
-            print(f"Reached max steps ({MAX_TURNS}). Final score: {final_score:.4f}")
-            print(f"[END] task={task_id} score={final_score} steps={step}", flush=True)
+            reward = float(obs.get("step_reward", 0.0))
+            done = bool(obs.get("done", False))
+            error = obs.get("error_message")
+
+            rewards_history.append(reward)
+            log_step(step=step, action=action_str, reward=reward, done=done, error=error)
+
+            if done:
+                final_score = float(obs.get("info", {}).get("grader_score", 0.0))
+                success = final_score > 0.1
+                break
+
+            if step == MAX_TURNS:
+                resp = env_step(session_id, None, finalize=True)
+                obs  = resp["observation"]
+                final_score = float(obs.get("info", {}).get("grader_score", 0.0))
+                success = final_score > 0.1
+                break
+
+    finally:
+        log_end(success=success, steps=len(rewards_history), score=final_score, rewards=rewards_history)
 
     return final_score
 
@@ -220,30 +241,12 @@ def run_episode(task_id: str, client) -> float:
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    print(f"\n🚀 DataWarehouseOps-Env Inference")
-    print(f"   Model       : {MODEL_NAME}")
-    print(f"   API Base    : {os.environ.get('API_BASE_URL', getattr(client, 'base_url', ''))}")
-    print(f"   Env URL     : {ENV_URL}")
-    print(f"   Tasks   : {TASKS}\n")
-
-    scores = {}
     for task in TASKS:
         try:
-            score = run_episode(task, client)
-            scores[task] = round(score, 4)
+            run_episode(task, client)
         except Exception as e:
-            import traceback
-            traceback.print_exc()
-            print(f"  [CRITICAL PROXY ERROR] on {task}: {e}")
-            scores[task] = 0.0
+            # Important: always emit [START] and [END] even on critical errors to satisfy regex
+            log_start(task=task, env="DataWarehouseOps", model=MODEL_NAME)
+            log_end(success=False, steps=0, score=0.0, rewards=[])
         time.sleep(1)
 
-    print(f"\n{'='*60}")
-    print(f"  📊 BASELINE RESULTS")
-    print(f"{'='*60}")
-    for task, score in scores.items():
-        bar = "█" * int(score * 20)
-        print(f"  {task:<35} {score:.4f}  |{bar}")
-    avg = sum(scores.values()) / len(scores)
-    print(f"\n  Average Score: {avg:.4f}")
-    print(f"{'='*60}\n")
