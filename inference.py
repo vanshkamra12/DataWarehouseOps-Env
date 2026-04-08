@@ -1,13 +1,13 @@
 """
 DataWarehouseOps-Env — Automated Inference Script
-Uses the OpenAI API client to run against all tasks.
-Reads credentials from HF_TOKEN, MODEL_NAME, and API_BASE_URL.
+Uses the OpenAI API client routed through the platform LiteLLM proxy.
+Reads credentials from API_BASE_URL and API_KEY (injected by the platform).
 Produces reproducible scores.
 
 Usage:
-    export HF_TOKEN=hf_...
-    export MODEL_NAME=meta-llama/Llama-3-...
-    export API_BASE_URL=https://api.endpoints.huggingface.cloud/...
+    export API_BASE_URL=<platform-proxy-url>
+    export API_KEY=<platform-api-key>
+    export MODEL_NAME=meta-llama/Meta-Llama-3-8B-Instruct
     python inference.py
 """
 
@@ -25,17 +25,18 @@ import requests
 # Config
 # ---------------------------------------------------------------------------
 
-ENV_URL      = os.getenv("DATAWAREHOUSE_ENV_URL", "http://localhost:7860").rstrip("/")
-API_BASE_URL = os.getenv("API_BASE_URL", "https://api.openai.com/v1")
-MODEL_NAME   = os.getenv("MODEL_NAME", "meta-llama/Meta-Llama-3-8B-Instruct")
-API_KEY      = os.getenv("API_KEY") or os.getenv("HF_TOKEN", "dummy-key")
-MAX_TURNS    = 30
+ENV_URL    = os.getenv("DATAWAREHOUSE_ENV_URL", "http://localhost:7860").rstrip("/")
+MODEL_NAME = os.getenv("MODEL_NAME", "meta-llama/Meta-Llama-3-8B-Instruct")
+MAX_TURNS  = 30
 
 from openai import OpenAI
+
+# Use the platform-injected LiteLLM proxy — do NOT change these
 client = OpenAI(
-    base_url=API_BASE_URL,
-    api_key=API_KEY
+    base_url=os.environ["API_BASE_URL"],
+    api_key=os.environ["API_KEY"],
 )
+
 
 TASKS = [
     "task1_data_cleaning",
@@ -221,7 +222,7 @@ def run_episode(task_id: str, client) -> float:
 if __name__ == "__main__":
     print(f"\n🚀 DataWarehouseOps-Env Inference")
     print(f"   Model       : {MODEL_NAME}")
-    print(f"   API Base    : {API_BASE_URL}")
+    print(f"   API Base    : {os.environ.get('API_BASE_URL', getattr(client, 'base_url', ''))}")
     print(f"   Env URL     : {ENV_URL}")
     print(f"   Tasks   : {TASKS}\n")
 
