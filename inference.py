@@ -28,8 +28,14 @@ import requests
 ENV_URL      = os.getenv("DATAWAREHOUSE_ENV_URL", "http://localhost:7860").rstrip("/")
 API_BASE_URL = os.getenv("API_BASE_URL", "https://api.openai.com/v1")
 MODEL_NAME   = os.getenv("MODEL_NAME", "meta-llama/Meta-Llama-3-8B-Instruct")
-API_KEY      = os.getenv("API_KEY") or os.getenv("HF_TOKEN")
+API_KEY      = os.getenv("API_KEY") or os.getenv("HF_TOKEN", "dummy-key")
 MAX_TURNS    = 30
+
+from openai import OpenAI
+client = OpenAI(
+    base_url=API_BASE_URL,
+    api_key=API_KEY
+)
 
 TASKS = [
     "task1_data_cleaning",
@@ -213,21 +219,6 @@ def run_episode(task_id: str, client) -> float:
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    if "API_BASE_URL" not in os.environ:
-        os.environ["API_BASE_URL"] = "https://api.openai.com/v1"
-    if "API_KEY" not in os.environ:
-        os.environ["API_KEY"] = os.environ.get("HF_TOKEN", "dummy-key")
-
-    try:
-        from openai import OpenAI
-        client = OpenAI(
-            base_url=os.environ["API_BASE_URL"],
-            api_key=os.environ["API_KEY"]
-        )
-    except ImportError:
-        print("ERROR: openai package not installed. Run: pip install openai")
-        sys.exit(1)
-
     print(f"\n🚀 DataWarehouseOps-Env Inference")
     print(f"   Model       : {MODEL_NAME}")
     print(f"   API Base    : {API_BASE_URL}")
