@@ -28,7 +28,7 @@ import requests
 ENV_URL      = os.getenv("DATAWAREHOUSE_ENV_URL", "http://localhost:7860").rstrip("/")
 API_BASE_URL = os.getenv("API_BASE_URL", "https://api.openai.com/v1")
 MODEL_NAME   = os.getenv("MODEL_NAME", "meta-llama/Meta-Llama-3-8B-Instruct")
-HF_TOKEN     = os.getenv("HF_TOKEN")
+API_KEY      = os.getenv("API_KEY") or os.getenv("HF_TOKEN")
 MAX_TURNS    = 30
 
 TASKS = [
@@ -85,9 +85,14 @@ def call_llm(messages: list, client) -> tuple[str, str]:
         model=MODEL_NAME,
         messages=messages,
         temperature=0,
-        response_format={"type": "json_object"},
     )
     raw = response.choices[0].message.content
+    
+    # Strip markdown if model returned it
+    if raw.startswith("```json"):
+        raw = raw.replace("```json", "", 1).replace("```", "")
+    elif raw.startswith("```"):
+        raw = raw.replace("```", "", 2)
     try:
         parsed = json.loads(raw)
     except Exception:
@@ -208,14 +213,14 @@ def run_episode(task_id: str, client) -> float:
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    if not HF_TOKEN:
-        print("ERROR: Set HF_TOKEN environment variable before running.")
+    if not API_KEY:
+        print("ERROR: Set API_KEY or HF_TOKEN environment variable before running.")
         sys.exit(1)
 
     try:
         from openai import OpenAI
         client = OpenAI(
-            api_key=HF_TOKEN,
+            api_key=API_KEY,
             base_url=API_BASE_URL
         )
     except ImportError:
