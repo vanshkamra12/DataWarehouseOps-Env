@@ -213,19 +213,18 @@ def run_episode(task_id: str, client) -> float:
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    if not os.getenv("HF_TOKEN") and not os.getenv("API_KEY"):
-        print("ERROR: Authentication key missing.")
-        sys.exit(1)
+    if "API_BASE_URL" not in os.environ:
+        os.environ["API_BASE_URL"] = "https://api.openai.com/v1"
+    if "API_KEY" not in os.environ:
+        os.environ["API_KEY"] = os.environ.get("HF_TOKEN", "dummy-key")
 
     try:
         from openai import OpenAI
         client = OpenAI(
-            base_url=os.getenv("API_BASE_URL", "https://api.openai.com/v1"),
-            api_key=os.getenv("API_KEY") or os.getenv("HF_TOKEN")
+            base_url=os.environ["API_BASE_URL"],
+            api_key=os.environ["API_KEY"]
         )
     except ImportError:
-        print("ERROR: openai package not installed. Run: pip install openai")
-        sys.exit(1)
         print("ERROR: openai package not installed. Run: pip install openai")
         sys.exit(1)
 
