@@ -15,9 +15,14 @@ import uuid
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
-# Local imports
-from graders import task1_grader, task2_grader, task3_grader
-from data.generator import seed_database
+try:
+    # When imported from root via inference.py
+    from server.graders import task1_grader, task2_grader, task3_grader
+    from server.data.generator import seed_database
+except ModuleNotFoundError:
+    # When executed directly within the server/ subdirectory
+    from graders import task1_grader, task2_grader, task3_grader
+    from data.generator import seed_database
 
 # ---------------------------------------------------------------------------
 # Constants
