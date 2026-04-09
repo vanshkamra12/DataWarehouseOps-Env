@@ -31,12 +31,14 @@ MAX_TURNS  = 30
 
 from openai import OpenAI
 
-# Use the platform-injected LiteLLM proxy with fallbacks exactly as the sample script
-client = OpenAI(
-    base_url=os.environ.get("API_BASE_URL", "https://router.huggingface.co/v1"),
-    api_key=os.environ.get("API_KEY", os.environ.get("HF_TOKEN", "dummy")),
-)
+# Platform injection priorities: HF_TOKEN is usually the primary key 
+API_KEY = os.environ.get("HF_TOKEN") or os.environ.get("API_KEY") or "dummy_token"
+BASE_URL = os.environ.get("API_BASE_URL", "https://router.huggingface.co/v1")
 
+client = OpenAI(
+    base_url=BASE_URL,
+    api_key=API_KEY,
+)
 
 TASKS = [
     "task1_data_cleaning",
@@ -44,9 +46,28 @@ TASKS = [
     "task3_query_optimization",
 ]
 
-import sys
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-_local_envs = {}
+# ---------------------------------------------------------------------------
+# Strict STDOUT Logging Format (Required by Platform Regex)
+# Note: Spacing after [STEP] and [END] is intentional to match sample script.
+# ---------------------------------------------------------------------------
+
+def log_start(task: str, env: str, model: str) -> None:
+    print(f"[START] task={task} env={env} model={model}", flush=True)
+
+def log_step(step: int, action: str, reward: float, done: bool, error: Optional[str]) -> None:
+    error_val = error if error else "null"
+    done_val = str(done).lower()
+    # Replace newlines in action to stay on one line
+    action_clean = str(action).replace('\n', '\\n').replace('\r', '')
+    print(
+        f"[STEP]  step={step} action={action_clean} reward={reward:.2f} done={done_val} error={error_val}",
+        flush=True,
+    )
+
+def log_end(success: bool, steps: int, score: float, rewards: list[float]) -> None:
+    rewards_str = ",".join(f"{r:.2f}" for r in rewards)
+    print(f"[END]   success={str(success).lower()} steps={steps} score={score:.3f} rewards={rewards_str}", flush=True)
+
 
 def env_reset(task_id: str) -> tuple[str, dict]:
     """POST /reset or native fallback"""
@@ -58,7 +79,6 @@ def env_reset(task_id: str) -> tuple[str, dict]:
     except Exception:
         from server.environment import DataWarehouseEnvironment
         env = DataWarehouseEnvironment(task_id=task_id)
-        _local_envs[task_id] = env
         return task_id, env.reset(task_id=task_id)
 
 def env_step(session_id: str, sql: Optional[str], finalize: bool = False, reasoning: str = "") -> dict:
@@ -77,14 +97,7 @@ def env_step(session_id: str, sql: Optional[str], finalize: bool = False, reason
         r.raise_for_status()
         return r.json()
     except Exception:
-        env = _local_envs[session_id]
-        obs = env.step({
-            "sql_command": sql,
-            "finalize_task": finalize,
-            "reasoning": reasoning
-        })
-        return {"observation": obs}
-
+        raise
 
 def call_llm(messages: list, client) -> tuple[str, str]:
     """Call OpenAI and return (sql_command, reasoning)."""
@@ -93,9 +106,7 @@ def call_llm(messages: list, client) -> tuple[str, str]:
         messages=messages,
         temperature=0,
     )
-    raw = response.choices[0].message.content
-    
-    # Strip markdown if model returned it
+    raw = response.choices[0].message.content or ""
     if raw.startswith("```json"):
         raw = raw.replace("```json", "", 1).replace("```", "")
     elif raw.startswith("```"):
@@ -105,28 +116,6 @@ def call_llm(messages: list, client) -> tuple[str, str]:
     except Exception:
         parsed = {"sql_command": None, "finalize_task": False, "reasoning": raw}
     return parsed.get("sql_command"), parsed.get("finalize_task", False), parsed.get("reasoning", "")
-
-
-# ---------------------------------------------------------------------------
-# Strict STDOUT Logging Format (Required by Platform)
-# ---------------------------------------------------------------------------
-
-def log_start(task: str, env: str, model: str) -> None:
-    print(f"[START] task={task} env={env} model={model}", flush=True)
-
-def log_step(step: int, action: str, reward: float, done: bool, error: Optional[str]) -> None:
-    error_val = error if error else "null"
-    done_val = str(done).lower()
-    # Ensure action does not have newlines which breaks the parser
-    action_str = str(action).replace('\n', '\\n')
-    print(
-        f"[STEP] step={step} action={action_str} reward={reward:.2f} done={done_val} error={error_val}",
-        flush=True,
-    )
-
-def log_end(success: bool, steps: int, score: float, rewards: list[float]) -> None:
-    rewards_str = ",".join(f"{r:.2f}" for r in rewards)
-    print(f"[END] success={str(success).lower()} steps={steps} score={score:.3f} rewards={rewards_str}", flush=True)
 
 
 # ---------------------------------------------------------------------------
