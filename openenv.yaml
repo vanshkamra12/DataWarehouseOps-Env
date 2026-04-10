@@ -85,6 +85,16 @@ reward:
     -0.10 for repeated commands (loop detection). Final grader score (0.0–1.0)
     added as bonus on episode completion.
 
+dependencies:
+  python: ">=3.10"
+  pip:
+    - fastapi==0.115.6
+    - uvicorn[standard]==0.34.0
+    - pydantic==2.10.6
+    - requests==2.32.3
+    - openai==1.68.2
+    - faker==33.1.0
+
 endpoints:
   - path: /reset
     method: POST
