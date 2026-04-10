@@ -273,13 +273,11 @@ async def baseline():
     from openai import OpenAI as _OpenAI
 
     # Use the platform-injected proxy credentials — required by the hackathon
-    # Prioritize HF_TOKEN which is the standard platform key
-    api_key = os.environ.get("HF_TOKEN") or os.environ.get("API_KEY") or "dummy_token"
-    api_base_url = os.environ.get("API_BASE_URL", "https://router.huggingface.co/v1")
-    
+    api_base_url = os.environ.get("API_BASE_URL", "https://api.openai.com/v1")
+    hf_token = os.environ.get("HF_TOKEN", "dummy_token")
     llm_client = _OpenAI(
         base_url=api_base_url,
-        api_key=api_key,
+        api_key=hf_token,
     )
     model_name = os.environ.get("MODEL_NAME", "meta-llama/Meta-Llama-3-8B-Instruct")
 

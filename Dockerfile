@@ -18,11 +18,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the full project
 COPY . .
 
-# Make the orchestrator script executable
-RUN chmod +x run.sh
-
 # Expose port for HF Spaces
 EXPOSE 7860
 
-# Run both the server and the inference script
-CMD ["/app/run.sh"]
+# Uvicorn with auto-reload disabled (production mode)
+# HF Spaces expects the app on 0.0.0.0:7860
+CMD ["uvicorn", "server.app:app", "--host", "0.0.0.0", "--port", "7860", "--workers", "1"]
