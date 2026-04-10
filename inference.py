@@ -14,14 +14,17 @@ import json
 import time
 import traceback
 
-from openai import OpenAI
+try:
+    from openai import OpenAI
+except ImportError:
+    OpenAI = None
 
 # ---------------------------------------------------------------------------
 # Platform-injected environment variables (never hardcode these)
 # ---------------------------------------------------------------------------
 
-API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
-API_KEY      = os.getenv("API_KEY") or os.getenv("HF_TOKEN") or "dummy-key"
+API_BASE_URL = os.getenv("API_BASE_URL", "https://api.openai.com/v1")
+HF_TOKEN     = os.getenv("HF_TOKEN")
 MODEL_NAME   = os.getenv("MODEL_NAME", "meta-llama/Meta-Llama-3-8B-Instruct")
 
 # ---------------------------------------------------------------------------
@@ -91,10 +94,12 @@ CUMULATIVE REWARD: {obs.get('total_reward')}
 
 def main():
     # Initialize OpenAI client pointing at platform LiteLLM proxy
-    client = OpenAI(
-        base_url=API_BASE_URL,
-        api_key=API_KEY,
-    )
+    client = None
+    if OpenAI is not None:
+        client = OpenAI(
+            base_url=API_BASE_URL,
+            api_key=HF_TOKEN or "dummy_token_to_prevent_crash",
+        )
 
     all_scores = {}
 
@@ -116,26 +121,27 @@ def main():
                 sql = None
                 finalize = False
                 reasoning = ""
-                try:
-                    response = client.chat.completions.create(
-                        model=MODEL_NAME,
-                        messages=messages,
-                        temperature=0,
-                        max_tokens=256,
-                    )
-                    raw = response.choices[0].message.content or ""
-                    # Strip markdown fences if present
-                    if raw.startswith("```"):
-                        raw = raw.split("```")[1]
-                        if raw.startswith("json"):
-                            raw = raw[4:]
-                    parsed = json.loads(raw.strip())
-                    sql      = parsed.get("sql_command")
-                    finalize = bool(parsed.get("finalize_task", False))
-                    reasoning = parsed.get("reasoning", "")
-                except Exception:
-                    # LLM failure: keep going with no-op action
-                    pass
+                if client is not None:
+                    try:
+                        response = client.chat.completions.create(
+                            model=MODEL_NAME,
+                            messages=messages,
+                            temperature=0,
+                            max_tokens=256,
+                        )
+                        raw = response.choices[0].message.content or ""
+                        # Strip markdown fences if present
+                        if raw.startswith("```"):
+                            raw = raw.split("```")[1]
+                            if raw.startswith("json"):
+                                raw = raw[4:]
+                        parsed = json.loads(raw.strip())
+                        sql      = parsed.get("sql_command")
+                        finalize = bool(parsed.get("finalize_task", False))
+                        reasoning = parsed.get("reasoning", "")
+                    except Exception:
+                        # LLM failure: keep going with no-op action
+                        pass
 
                 messages.append({
                     "role": "assistant",
@@ -162,10 +168,13 @@ def main():
                 final_score = float(obs.get("info", {}).get("grader_score", 0.0))
 
             all_scores[task_id] = round(final_score, 4)
+            # REQUIRED: print individual task score so evaluator can parse it
+            print(f"TASK_SCORES: {json.dumps({task_id: round(final_score, 4)})}", flush=True)
             print(f"[END] task={task_id} score={final_score:.4f} steps={step}", flush=True)
 
         except Exception as e:
             traceback.print_exc()
+            print(f"TASK_SCORES: {json.dumps({task_id: 0.0})}", flush=True)
             print(f"[END] task={task_id} score=0.0 steps=0", flush=True)
             all_scores[task_id] = 0.0
 
@@ -181,6 +190,8 @@ def main():
     avg = sum(all_scores.values()) / len(all_scores) if all_scores else 0.0
     print(f"\n  Average Score: {avg:.4f}")
     print(f"{'='*60}\n")
+    # Final combined TASK_SCORES for evaluator
+    print(f"TASK_SCORES: {json.dumps(all_scores)}", flush=True)
 
 
 if __name__ == "__main__":
