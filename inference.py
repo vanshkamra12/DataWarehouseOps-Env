@@ -98,7 +98,7 @@ def main():
             obs = env.reset(task_id=task_id)
 
             messages = [{"role": "system", "content": SYSTEM_PROMPT}]
-            final_score = 0.0
+            final_score = 0.01
 
             for step in range(1, MAX_TURNS + 1):
                 messages.append({"role": "user", "content": build_user_message(obs)})
@@ -143,12 +143,12 @@ def main():
                 print(f"[STEP] {step}", flush=True)
 
                 if done or finalize:
-                    final_score = float(obs.get("info", {}).get("grader_score", 0.0))
+                    final_score = float(obs.get("info", {}).get("grader_score", 0.01))
                     break
 
             if not obs.get("done", False):
                 obs = env.step({"sql_command": None, "finalize_task": True, "reasoning": "max steps"})
-                final_score = float(obs.get("info", {}).get("grader_score", 0.0))
+                final_score = float(obs.get("info", {}).get("grader_score", 0.01))
 
             # Clamp score to strictly (0, 1) — validator rejects 0.0 and 1.0
             final_score = max(0.01, min(0.99, final_score))

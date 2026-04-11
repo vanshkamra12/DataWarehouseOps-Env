@@ -20,6 +20,7 @@ tasks:
     name: "Enterprise Data Cleaning"
     difficulty: easy
     max_steps: 25
+    grader: "server.graders.task1_grader:grade"
     description: >
       Clean a dirty employee_records table (2,000 real rows): normalize gender values,
       fix broken date formats to ISO-8601, and fill NULL country values.
@@ -28,6 +29,7 @@ tasks:
     name: "PII Privacy Shielding"
     difficulty: medium
     max_steps: 20
+    grader: "server.graders.task2_grader:grade"
     description: >
       Create a SQL VIEW named 'masked_customers' over 500 records that masks email usernames,
       credit card numbers (last 4 visible), and SSNs (last 2 visible),
@@ -37,6 +39,7 @@ tasks:
     name: "Query Optimization & Indexing"
     difficulty: hard
     max_steps: 30
+    grader: "server.graders.task3_grader:grade"
     description: >
       Diagnose a slow financial reporting query doing a full table scan on 100,000 rows.
       Create the correct indexes so EXPLAIN QUERY PLAN shows SEARCH
@@ -77,8 +80,8 @@ observation_space:
     info: object
 
 reward:
-  min: -1.0
-  max: 1.0
+  min: 0.01
+  max: 0.99
   description: >
     Dense per-step rewards: +0.02 for exploration SELECT, +0.05 for
     successful DML/DDL, -0.10 for invalid SQL, -0.50 for dangerous commands,

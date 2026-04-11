@@ -247,16 +247,18 @@ async def grader(req: GraderRequest):
 
     env = _sessions[req.session_id]
     if env._done:
+        _sc = env._grader_score if env._grader_score is not None else 0.01
         return {
             "session_id":   req.session_id,
-            "grader_score": env._grader_score,
+            "grader_score": max(0.01, min(0.99, _sc)),
             "message":      "Episode already finalized.",
         }
 
     observation = env.step({"sql_command": None, "finalize_task": True})
+    _gs = observation["info"].get("grader_score", 0.01)
     return {
         "session_id":   req.session_id,
-        "grader_score": observation["info"].get("grader_score", 0.0),
+        "grader_score": max(0.01, min(0.99, _gs)),
         "breakdown":    observation["info"].get("grader_breakdown", {}),
         "total_reward": observation["total_reward"],
     }
@@ -346,7 +348,7 @@ async def baseline():
         env = DataWarehouseEnvironment(task_id=task_id)
         obs = env.reset(task_id=task_id)
         messages = [{"role": "system", "content": SYSTEM_PROMPT}]
-        final_score = 0.0
+        final_score = 0.01
 
         for step_num in range(1, max_turns + 1):
             messages.append({"role": "user", "content": _build_user_msg(obs)})
@@ -366,14 +368,15 @@ async def baseline():
             })
             print(f"[STEP] step={step_num} reward={obs.get('step_reward', 0.0)}", flush=True)
             if obs.get("done"):
-                final_score = obs.get("info", {}).get("grader_score", 0.0)
+                final_score = max(0.01, min(0.99, obs.get("info", {}).get("grader_score", 0.01)))
                 break
             if step_num == max_turns:
                 obs = env.step({"sql_command": None, "finalize_task": True})
-                final_score = obs.get("info", {}).get("grader_score", 0.0)
+                final_score = max(0.01, min(0.99, obs.get("info", {}).get("grader_score", 0.01)))
 
+        final_score = max(0.01, min(0.99, final_score))
         print(f"[END] task={task_id} score={final_score}", flush=True)
-        results.append({"task_id": task_id, "score": final_score})
+        results.append({"task_id": task_id, "score": round(final_score, 4)})
 
     return {"baseline_scores": results, "agent": "llm_baseline_v1"}
 
