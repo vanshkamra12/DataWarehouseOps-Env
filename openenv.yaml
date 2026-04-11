@@ -95,6 +95,11 @@ dependencies:
     - openai==1.68.2
     - faker==33.1.0
 
+env:
+  API_BASE_URL: "https://api.openai.com/v1"
+  MODEL_NAME: "meta-llama/Meta-Llama-3-8B-Instruct"
+  HF_TOKEN: "YOUR_HF_TOKEN"
+
 endpoints:
   - path: /reset
     method: POST
