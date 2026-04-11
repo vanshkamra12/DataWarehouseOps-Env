@@ -19,16 +19,17 @@ from typing import Tuple
 
 SLOW_QUERY = """
 SELECT
-    st.category,
-    st.region,
+    p.category,
+    st.region_name,
     SUM(st.total_amount)  AS total_revenue,
     COUNT(st.id)          AS order_count,
     AVG(st.discount_pct)  AS avg_discount_pct
 FROM sales_transactions st
-WHERE st.sale_date >= '2017-01-01'
-  AND st.sale_date <  '2018-01-01'
+JOIN products p ON st.product_id = p.id
+WHERE st.sale_date >= '2023-01-01'
+  AND st.sale_date <  '2024-01-01'
   AND st.status = 'completed'
-GROUP BY st.category, st.region
+GROUP BY p.category, st.region_name
 ORDER BY total_revenue DESC;
 """.strip()
 
