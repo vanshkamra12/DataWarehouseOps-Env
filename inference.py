@@ -150,6 +150,8 @@ def main():
                 obs = env.step({"sql_command": None, "finalize_task": True, "reasoning": "max steps"})
                 final_score = float(obs.get("info", {}).get("grader_score", 0.0))
 
+            # Clamp score to strictly (0, 1) — validator rejects 0.0 and 1.0
+            final_score = max(0.01, min(0.99, final_score))
             all_scores[task_id] = round(final_score, 4)
 
             print("[END]", flush=True)
