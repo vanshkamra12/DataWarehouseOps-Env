@@ -40,7 +40,7 @@ def grade(conn: sqlite3.Connection) -> Tuple[float, dict]:
     breakdown["view_exists"] = view_exists
 
     if not view_exists:
-        return 0.0, {"error": f"View '{REQUIRED_VIEW}' does not exist. Score: 0.0", **breakdown}
+        return 0.01, {"error": f"View '{REQUIRED_VIEW}' does not exist.", **breakdown}
 
     # Try to query the view (count first, then sample)
     try:
@@ -50,13 +50,13 @@ def grade(conn: sqlite3.Connection) -> Tuple[float, dict]:
         rows = cursor.fetchall()
         col_names = [desc[0].lower() for desc in cursor.description]
     except Exception as e:
-        return 0.0, {"error": f"View query failed: {e}", **breakdown}
+        return 0.01, {"error": f"View query failed: {e}", **breakdown}
 
     breakdown["row_count"] = total_count
     breakdown["columns"]   = col_names
 
     if total_count == 0:
-        return 0.0, {"error": "View exists but returned 0 rows.", **breakdown}
+        return 0.01, {"error": "View exists but returned 0 rows.", **breakdown}
 
     row_dicts = [dict(zip(col_names, r)) for r in rows]
 
@@ -117,6 +117,6 @@ def grade(conn: sqlite3.Connection) -> Tuple[float, dict]:
       + 0.15 * safe_score
       + 0.10 * row_count_score
     )
-    final = round(min(1.0, max(0.0, final)), 4)
+    final = round(min(0.99, max(0.01, final)), 4)
     breakdown["final_score"] = final
     return final, breakdown

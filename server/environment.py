@@ -308,7 +308,7 @@ class DataWarehouseEnvironment:
         try:
             score, breakdown = grader_module.grade(self._conn)
         except Exception as e:
-            score = 0.0
+            score = 0.01
             breakdown = {"grader_error": str(e)}
 
         self._grader_score = score

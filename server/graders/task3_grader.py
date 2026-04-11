@@ -97,6 +97,6 @@ def grade(conn: sqlite3.Connection) -> Tuple[float, dict]:
       + 0.35 * explain_score
       + 0.15 * correct_score
     )
-    final = round(min(1.0, max(0.0, final)), 4)
+    final = round(min(0.99, max(0.01, final)), 4)
     breakdown["final_score"] = final
     return final, breakdown

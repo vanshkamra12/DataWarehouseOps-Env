@@ -28,7 +28,7 @@ def grade(conn: sqlite3.Connection) -> Tuple[float, dict]:
     breakdown["total_rows"] = total_rows
 
     if total_rows == 0:
-        return 0.0, {"error": "Table is empty — all data was deleted!", **breakdown}
+        return 0.01, {"error": "Table is empty — all data was deleted!", **breakdown}
 
     # ── 1. Gender normalization (0.30) ───────────────────────────────
     cursor.execute(
@@ -77,6 +77,6 @@ def grade(conn: sqlite3.Connection) -> Tuple[float, dict]:
       + 0.10 * country_score
       + 0.10 * no_loss_score
     )
-    final = round(min(1.0, max(0.0, final)), 4)
+    final = round(min(0.99, max(0.01, final)), 4)
     breakdown["final_score"] = final
     return final, breakdown
